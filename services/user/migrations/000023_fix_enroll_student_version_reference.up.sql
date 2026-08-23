@@ -1,54 +1,13 @@
 SET ROLE aether_user_owner;
 
--- Tenant is the authority for department and batch ownership. User keeps a
--- deliberately narrow event-fed projection so it can validate opaque IDs
--- without a cross-database foreign key or a synchronous tenant-table read.
-CREATE TABLE users.tenant_department_projections (
-    department_id uuid PRIMARY KEY,
-    tenant_id uuid,
-    placement_organization_id uuid,
-    department_type text NOT NULL CHECK (department_type IN ('college', 'placement')),
-    status text NOT NULL CHECK (status IN ('active', 'archived')),
-    source_event_id uuid NOT NULL UNIQUE,
-    source_occurred_at timestamptz NOT NULL,
-    projected_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CHECK (
-        (department_type = 'college' AND tenant_id IS NOT NULL AND placement_organization_id IS NULL)
-        OR (department_type = 'placement' AND tenant_id IS NULL AND placement_organization_id IS NOT NULL)
-    )
-);
-CREATE INDEX tenant_department_projections_tenant_idx
-    ON users.tenant_department_projections (tenant_id, department_type, status)
-    WHERE department_type = 'college';
-
-CREATE TABLE users.tenant_batch_projections (
-    batch_id uuid PRIMARY KEY,
-    tenant_id uuid NOT NULL,
-    department_id uuid NOT NULL,
-    status text NOT NULL CHECK (status IN ('active', 'archived')),
-    source_event_id uuid NOT NULL UNIQUE,
-    source_occurred_at timestamptz NOT NULL,
-    projected_at timestamptz NOT NULL DEFAULT clock_timestamp()
-);
-CREATE INDEX tenant_batch_projections_tenant_idx
-    ON users.tenant_batch_projections (tenant_id, department_id, status);
-
-CREATE TABLE users.tenant_projection_inbox_messages (
-    event_id uuid PRIMARY KEY,
-    payload_sha256 bytea NOT NULL CHECK (octet_length(payload_sha256) = 32),
-    occurred_at timestamptz NOT NULL,
-    received_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    processed_at timestamptz,
-    last_error text
-);
-CREATE INDEX tenant_projection_inbox_pending_idx
-    ON users.tenant_projection_inbox_messages (received_at) WHERE processed_at IS NULL;
-
--- Enrollment is one aggregate command, but the normalized model has four
--- protected relations. This SECURITY DEFINER command is intentionally narrow:
--- it requires the caller's signed users.students write context, validates the
--- tenant projection, and can create only the invariant-preserving bundle.
-CREATE FUNCTION users.enroll_student_with_affiliations(
+-- 000004's UPDATE used an unqualified "version" reference, which is
+-- ambiguous because RETURNS TABLE (..., version integer, ...) implicitly
+-- declares "version" as a PL/pgSQL variable in scope for the whole function
+-- body. PostgreSQL's default plpgsql.variable_conflict = error then rejects
+-- every enrollment with "column reference \"version\" is ambiguous". Qualify
+-- the column reference with the table's own unqualified name (valid because
+-- it is not aliased in this UPDATE) to resolve it to the table column.
+CREATE OR REPLACE FUNCTION users.enroll_student_with_affiliations(
     p_student_id uuid,
     p_principal_id uuid,
     p_tenant_id uuid,
@@ -132,7 +91,7 @@ BEGIN
     );
 
     UPDATE users.students
-    SET status = 'active', version = version + 1
+    SET status = 'active', version = students.version + 1
     WHERE students.id = p_student_id;
 
     RETURN QUERY
@@ -143,20 +102,5 @@ BEGIN
     WHERE student.id = p_student_id;
 END
 $function$;
-
-REVOKE ALL ON TABLE users.tenant_department_projections, users.tenant_batch_projections,
-    users.tenant_projection_inbox_messages FROM PUBLIC;
-REVOKE ALL ON FUNCTION users.enroll_student_with_affiliations(
-    uuid, uuid, uuid, text, uuid, uuid, uuid, uuid, uuid, uuid
-) FROM PUBLIC;
-GRANT SELECT ON users.tenant_department_projections, users.tenant_batch_projections
-    TO aether_user_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON users.tenant_department_projections, users.tenant_batch_projections
-    TO aether_user_projection_worker;
-GRANT SELECT, INSERT, UPDATE, DELETE ON users.tenant_projection_inbox_messages
-    TO aether_user_projection_worker;
-GRANT EXECUTE ON FUNCTION users.enroll_student_with_affiliations(
-    uuid, uuid, uuid, text, uuid, uuid, uuid, uuid, uuid, uuid
-) TO aether_user_app;
 
 RESET ROLE;
