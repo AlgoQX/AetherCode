@@ -16,6 +16,11 @@ import { gzipSync } from "node:zlib";
 // of the config and therefore of the Config Key.
 const QUIT_PASSWORD = process.env.SEB_CONFIG_PASSWORD ?? "aethercode-seb-internal-2026";
 
+// Config key from the build deployed before 2026-10-06 (showReloadButton/browserWindowAllowReload were false).
+// Accepted during the transition so students who launched SEB before the reload-button update are not locked out.
+// Remove after all current exams complete.
+const LEGACY_CONFIG_KEY_2026_10_06 = "2242f3da70a3eb22eaa373c41112939586c0bcfbae469f67d2182d0df01caaec";
+
 /**
  * Verify an incoming SEB request. `requestUrl` must be the exact absolute URL
  * SEB requested (query included), because that is what SEB hashes.
@@ -23,8 +28,11 @@ const QUIT_PASSWORD = process.env.SEB_CONFIG_PASSWORD ?? "aethercode-seb-interna
 export function isSebConfigKeyRequest(requestUrl: string, configKeyHash: string | null, origin: string): boolean {
   if (!configKeyHash) return false;
   const url = requestUrl.split("#")[0];
-  const expected = createHash("sha256").update(url + sebConfigKey(origin), "utf8").digest("hex");
-  return expected === configKeyHash.toLowerCase();
+  const hash = configKeyHash.toLowerCase();
+  for (const key of [sebConfigKey(origin), LEGACY_CONFIG_KEY_2026_10_06]) {
+    if (createHash("sha256").update(url + key, "utf8").digest("hex") === hash) return true;
+  }
+  return false;
 }
 
 /**
@@ -229,7 +237,7 @@ function sebPlist(origin: string): string {
 	<key>browserViewMode</key>
 	<integer>1</integer>
 	<key>browserWindowAllowReload</key>
-	<false/>
+	<true/>
 	<key>browserWindowShowURL</key>
 	<integer>0</integer>
 	<key>browserWindowWebView</key>
@@ -428,7 +436,7 @@ function sebPlist(origin: string): string {
 	<key>showMenuBar</key>
 	<false/>
 	<key>showReloadButton</key>
-	<false/>
+	<true/>
 	<key>showReloadWarning</key>
 	<false/>
 	<key>showTaskBar</key>
