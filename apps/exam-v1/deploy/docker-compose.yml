@@ -82,6 +82,9 @@ services:
     build: ..
     restart: always
     environment: *app-env
+    networks:
+      - default
+      - mail
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -123,6 +126,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+networks:
+  mail:
+    external: true
+    name: mailserver_mail-net
 
 volumes:
   db-data:

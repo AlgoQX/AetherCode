@@ -34,26 +34,31 @@ export async function forgotPassword(_: string | null, form: FormData): Promise<
   const token = await createResetToken(user.id);
   const origin = await publicOrigin();
   const link = `${origin}/reset-password?token=${token}`;
-  await sendMail({
-    to: email,
-    subject: "Reset your password — AetherCode",
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto;">
-        <h2 style="margin-bottom: 4px;">Reset your password</h2>
-        <p>Hi ${user.name},</p>
-        <p>A password reset was requested for your account <strong>${username}</strong>.</p>
-        <p>Click the link below to set a new password. This link expires in 1 hour.</p>
-        <p style="margin: 24px 0;">
-          <a href="${link}" style="background: #2563eb; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-            Reset password
-          </a>
-        </p>
-        <p style="font-size: 13px; color: #6b7280;">If you didn't request this, ignore this email. Your password won't change.</p>
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 32px;" />
-        <p style="font-size: 12px; color: #9ca3af;">AetherCode Assessment Platform</p>
-      </div>
-    `,
-  });
+  try {
+    await sendMail({
+      to: email,
+      subject: "Reset your password — AetherCode",
+      html: `
+        <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2 style="margin-bottom: 4px;">Reset your password</h2>
+          <p>Hi ${user.name},</p>
+          <p>A password reset was requested for your account <strong>${username}</strong>.</p>
+          <p>Click the link below to set a new password. This link expires in 1 hour.</p>
+          <p style="margin: 24px 0;">
+            <a href="${link}" style="background: #2563eb; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+              Reset password
+            </a>
+          </p>
+          <p style="font-size: 13px; color: #6b7280;">If you didn't request this, ignore this email. Your password won't change.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 32px;" />
+          <p style="font-size: 12px; color: #9ca3af;">AetherCode Assessment Platform</p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Failed to send reset email:", error);
+    return "Could not send the email right now. Please try again later or contact your administrator.";
+  }
 
   return SUCCESS;
 }
