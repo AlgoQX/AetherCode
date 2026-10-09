@@ -7,13 +7,15 @@ function getTransporter(): Transporter {
   if (transporter) return transporter;
   const host = process.env.SMTP_HOST;
   if (!host) throw new Error("SMTP_HOST is required for password reset emails");
+  const port = Number(process.env.SMTP_PORT ?? 587);
   transporter = nodemailer.createTransport({
     host,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: Number(process.env.SMTP_PORT ?? 587) === 465,
+    port,
+    secure: port === 465,
     auth: process.env.SMTP_USER
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? "" }
       : undefined,
+    tls: { rejectUnauthorized: false },
   });
   return transporter;
 }

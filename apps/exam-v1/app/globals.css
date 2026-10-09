@@ -15,10 +15,10 @@
   --color-muted: #5f6275;
   --color-faint: #8b8e9e;
 
-  --color-brand: #4f46e5;
-  --color-brand-soft: #eef0ff;
-  --color-brand-ink: #3730a3;
-  --color-accent: #ea580c;
+  --color-brand: #e04090;
+  --color-brand-soft: #fdf0f5;
+  --color-brand-ink: #a02060;
+  --color-accent: #f07030;
   --color-accent-soft: #fff4ec;
 
   --color-pass: #15803d;
@@ -62,9 +62,9 @@
   --color-ink-soft: #d4d6e0;
   --color-muted: #a3a7ba;
   --color-faint: #7c8195;
-  --color-brand: #6366f1;
-  --color-brand-soft: #23264a;
-  --color-brand-ink: #c7d2fe;
+  --color-brand: #f06090;
+  --color-brand-soft: #3a1828;
+  --color-brand-ink: #fbb8d0;
   --color-accent: #fb923c;
   --color-accent-soft: #3a2414;
   --color-pass: #4ade80;
@@ -98,9 +98,9 @@
 
 .hero-glow {
   background:
-    radial-gradient(60% 55% at 18% 20%, rgba(129, 140, 248, 0.32), transparent 70%),
-    radial-gradient(45% 45% at 85% 25%, rgba(249, 115, 22, 0.22), transparent 70%),
-    radial-gradient(50% 50% at 60% 90%, rgba(165, 180, 252, 0.28), transparent 70%);
+    radial-gradient(60% 55% at 18% 20%, rgba(224, 64, 144, 0.25), transparent 70%),
+    radial-gradient(45% 45% at 85% 25%, rgba(240, 112, 48, 0.20), transparent 70%),
+    radial-gradient(50% 50% at 60% 90%, rgba(240, 160, 32, 0.22), transparent 70%);
 }
 
 .prose-exam {
