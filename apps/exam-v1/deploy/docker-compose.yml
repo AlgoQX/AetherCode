@@ -103,6 +103,8 @@ services:
     restart: always
     command: ["pnpm", "worker"]
     environment: *app-env
+    deploy:
+      replicas: 8
     depends_on:
       migrate:
         condition: service_completed_successfully
