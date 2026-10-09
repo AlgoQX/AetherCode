@@ -9,7 +9,7 @@ export default function ForgotPasswordPage() {
         <Logo className="mb-8" />
         <h1 className="font-display text-3xl font-semibold tracking-tight">Reset password</h1>
         <p className="mb-8 mt-2 text-sm text-muted">
-          Enter the email address linked to your account and we'll send you a reset link.
+          Enter your username and email address. We'll send a reset link to your email.
         </p>
         <ForgotPasswordForm />
       </div>
