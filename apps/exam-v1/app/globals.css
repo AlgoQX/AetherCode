@@ -103,6 +103,31 @@
     radial-gradient(50% 50% at 60% 90%, rgba(240, 160, 32, 0.22), transparent 70%);
 }
 
+.auth-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(224, 64, 144, 0.12), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(240, 112, 48, 0.10), transparent 60%),
+    radial-gradient(ellipse 50% 50% at 50% 80%, rgba(240, 160, 32, 0.08), transparent 60%),
+    linear-gradient(180deg, var(--color-canvas) 0%, color-mix(in srgb, var(--color-canvas) 95%, var(--color-brand)) 100%);
+}
+
+.auth-card {
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+}
+
+:root[data-theme="dark"] .auth-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(224, 64, 144, 0.08), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(240, 112, 48, 0.06), transparent 60%),
+    radial-gradient(ellipse 50% 50% at 50% 80%, rgba(240, 160, 32, 0.05), transparent 60%),
+    linear-gradient(180deg, var(--color-canvas) 0%, color-mix(in srgb, var(--color-canvas) 96%, var(--color-brand)) 100%);
+}
+
+:root[data-theme="dark"] .auth-card {
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .prose-exam {
   line-height: 1.7;
   font-size: 0.95rem;
