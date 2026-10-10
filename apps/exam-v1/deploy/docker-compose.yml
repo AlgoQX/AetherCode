@@ -85,6 +85,8 @@ services:
     networks:
       - default
       - mail
+    deploy:
+      replicas: 4
     depends_on:
       migrate:
         condition: service_completed_successfully
