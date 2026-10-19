@@ -478,7 +478,9 @@ services:
       - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     networks:
       default:
+      # Fixed too, or the gateway, started first, could take the frontend's.
       edge:
+        ipv4_address: 10.231.240.3
 
   # The web UI (ADR-0024). The host nginx sends every request here; /api is
   # proxied to the gateway over the edge network with the session's bearer.
