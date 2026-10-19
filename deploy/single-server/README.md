@@ -97,13 +97,13 @@ from its cookie, so Safe Exam Browser's request hashes still verify.
 API writes from any other origin.
 
 The gateway trusts `X-Forwarded-For` only from listed addresses. The frontend
-reaches it from its fixed address on the `edge` network, `172.31.240.2`, which
+reaches it from its fixed address on the `edge` network, `10.231.240.2`, which
 is the default. If `.env` sets `GATEWAY_TRUSTED_PROXY_CIDRS` (an older setup
 listed the bridge gateway nginx used to connect from), add the frontend:
 
 ```sh
 # in .env, keeping any address already listed
-GATEWAY_TRUSTED_PROXY_CIDRS=["172.31.240.2/32","172.27.0.1/32"]
+GATEWAY_TRUSTED_PROXY_CIDRS=["10.231.240.2/32","172.27.0.1/32"]
 docker compose up -d gateway frontend
 ```
 

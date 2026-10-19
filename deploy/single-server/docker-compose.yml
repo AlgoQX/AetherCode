@@ -466,7 +466,7 @@ services:
       # The frontend (ADR-0024) forwards each student's address from its fixed
       # edge address; the host nginx reaches the gateway through the Docker
       # bridge address. A .env value must list both.
-      GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-["172.31.240.2/32"]}
+      GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-["10.231.240.2/32"]}
       # Every candidate request to Submission passes the SEB lockdown check
       # (ADR-0022); SEB hashes the URL at the public origin.
       GATEWAY_SEB_PROTECTED_PREFIXES: '["/api/submission/v1/tenants"]'
@@ -493,15 +493,17 @@ services:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     networks:
       edge:
-        ipv4_address: 172.31.240.2
+        ipv4_address: 10.231.240.2
 
 # Only the frontend and the gateway share this network, so the frontend's
-# fixed address is the one the gateway trusts for X-Forwarded-For.
+# fixed address is the one the gateway trusts for X-Forwarded-For. The subnet
+# sits outside Docker's default pools (172.17-31.x, 192.168.x), which a busy
+# host can use up entirely.
 networks:
   edge:
     ipam:
       config:
-        - subnet: 172.31.240.0/29
+        - subnet: 10.231.240.0/29
 
 volumes:
   piston-packages:
