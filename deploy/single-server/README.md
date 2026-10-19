@@ -89,18 +89,27 @@ sudo ln -sf /etc/nginx/sites-available/aethercode /etc/nginx/sites-enabled/aethe
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-The gateway trusts `X-Forwarded-For` only from the address nginx connects
-from, which is the Compose network's bridge gateway. Find it and set it in
-`.env`, then recreate the gateway:
+nginx sends every request to the `frontend` service (the web UI, ADR-0024) on
+`127.0.0.1:3000` (`FRONTEND_PORT`). The frontend serves the pages and forwards
+`/api/...` to the gateway under the same path, adding the session's bearer
+from its cookie, so Safe Exam Browser's request hashes still verify.
+`PUBLIC_ORIGIN` must be the exact origin students type; the frontend refuses
+API writes from any other origin.
+
+The gateway trusts `X-Forwarded-For` only from listed addresses. The frontend
+reaches it from its fixed address on the `edge` network, `172.31.240.2`, which
+is the default. If `.env` sets `GATEWAY_TRUSTED_PROXY_CIDRS` (an older setup
+listed the bridge gateway nginx used to connect from), add the frontend:
 
 ```sh
-docker network inspect aethercode-platform_default -f '{{(index .IPAM.Config 0).Gateway}}'
-echo 'GATEWAY_TRUSTED_PROXY_CIDRS=["172.27.0.1/32"]' >> .env   # use the address printed above
-docker compose up -d gateway
+# in .env, keeping any address already listed
+GATEWAY_TRUSTED_PROXY_CIDRS=["172.31.240.2/32","172.27.0.1/32"]
+docker compose up -d gateway frontend
 ```
 
-Without it every request appears to come from nginx, so per-IP login limits
-and lab network rules would treat all students as one address.
+Without it every request appears to come from the frontend, so per-IP login
+limits and lab network rules would treat all students as one address. The
+gateway stays published on loopback for `smoke.py` and administration.
 
 ## Backups
 
@@ -149,6 +158,18 @@ git pull && docker compose build && docker compose up -d
 
 `migrate` and `judge-migrate` run again on every `up` and apply only new
 migrations.
+
+When an upgrade adds fields to an event, start its consumers first. Each
+step's consumer rejects fields it does not know, so the order matters:
+Submission reads Assessment's new snapshot fields (ADR-0023), and Assessment
+reads User's (ADR-0026).
+
+```sh
+git pull && docker compose build
+docker compose up -d migrate submission   # reads Assessment's new fields
+docker compose up -d assessment           # reads User's new fields
+docker compose up -d                      # everything else, User included
+```
 
 After every upgrade, run the end-to-end smoke test through the gateway:
 

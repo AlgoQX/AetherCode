@@ -88,6 +88,10 @@ ok("re-import skips existing roll number, adds the new one")
 first = result["imported"][0]
 student = login(first["roll_number"], first["password"])
 ok(f"student signs in by roll number {first['roll_number']} (case-insensitive)")
+_, me, me_headers = call("GET", "/user/v1/me", token=student, expect=200)
+assert me["principal_id"] == first["principal_id"] and me["student"] == {"tenant_id": tenant}, me
+assert any(r["role_name"] == "student" for r in me["roles"]) and me_headers["Cache-Control"] == "no-store", me
+ok("/me tells the student their own roles and college")
 
 call("GET", f"/identity/v1/principals/{first['principal_id']}", token=student, expect=200)
 admin_id = json.loads(base64.urlsafe_b64decode(admin.split(".")[1] + "=="))["sub"]
@@ -122,8 +126,10 @@ assert status == 404, status
 ok("college cannot reset the platform admin's password (404)")
 
 _, staff, _ = call("POST", f"/user/v1/tenants/{tenant}/staff", {"username": f"faculty.{run}", "display_name": "Faculty One", "role": "department_user", "department_id": department}, token=admin, expect=201)
-login(f"faculty.{run}", staff["password"])
+faculty_me = call("GET", "/user/v1/me", token=login(f"faculty.{run}", staff["password"]), expect=200)[1]
 ok(f"faculty account created ({staff['role_assignment']['scope_kind']} scope) and signs in")
+assert faculty_me["student"] is None and [r["role_name"] for r in faculty_me["roles"]] == ["department_user"], faculty_me
+ok("/me shows faculty their staff role")
 print("ALL M1 CHECKS PASSED")
 
 # --- M2: authoring --------------------------------------------------------
@@ -167,7 +173,7 @@ _, policy_version, _ = call("POST", f"/assessment/v1/tenants/{tenant}/proctor-po
 call("POST", f"/assessment/v1/tenants/{tenant}/proctor-policy-versions/{policy_version['id']}/publish", {}, token=faculty, expect=200)
 iso = lambda seconds: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(seconds))
 
-def publish_exam(title, duration_seconds, check_unknown_question=False):
+def publish_exam(title, duration_seconds, check_unknown_question=False, target=None):
     """Publishes a one-question exam opening in 20 s, assigns it to the batch,
     and returns (opens_at epoch, exam version, item, the student's assignment)."""
     _, exam, _ = call("POST", f"/assessment/v1/tenants/{tenant}/exams", {"external_reference": f"{title}-{run}"}, token=faculty, expect=201)
@@ -189,7 +195,8 @@ def publish_exam(title, duration_seconds, check_unknown_question=False):
                       "question_version_id": version_id, "maximum_score": "10"}, token=faculty, expect=201)
     assert item["question_version_id"] == version_id and len(item["evaluation_bundle_checksum"]) == 64, item
     call("POST", f"{versions_path}/publish", {"expected_content_version": content()}, token=faculty, expect=200)
-    call("POST", f"{versions_path}/assignment-rules", {"target_type": "batch", "target_id": batch["id"],
+    target_type, target_id = target or ("batch", batch["id"])
+    call("POST", f"{versions_path}/assignment-rules", {"target_type": target_type, "target_id": target_id,
          "available_from": exam_version["opens_at"], "available_until": exam_version["closes_at"], "accommodations": {}},
          token=faculty, expect=201)
     for _ in range(15):
@@ -204,6 +211,11 @@ opens, exam_version, item, assignment = publish_exam("Smoke test", 3600, check_u
 ok("exam item pins the published question's bundles, resolved from the bank over mTLS")
 ok("exam published and assigned to the batch")
 ok("a student in the batch sees the assigned exam")
+publish_exam("Placement smoke test", 3600, target=("placement_department", placement["id"]))
+ok("an exam assigned to the student's placement department reaches the student")
+assert (assignment["title"], assignment["exam_id"], assignment["duration_seconds"]) == ("Smoke test", exam_version["exam_id"], 3600), assignment
+assert assignment["instructions_markdown"] == "Solve it.", assignment
+ok("the student's assignment carries the exam's title, id, instructions and duration")
 print("ALL M2 CHECKS PASSED")
 
 # --- M3: take and grade ---------------------------------------------------
@@ -221,6 +233,13 @@ _, revision, _ = call("PUT", f"{attempts}/{attempt['id']}/answers/{item['id']}",
                       {"language": "python3", "source": source, "expected_attempt_version": attempt["version"]}, token=student, expect=201)
 assert "source_object_key" not in revision and "encryption_key_reference" not in revision, revision
 ok("code saved; storage details stay server-side")
+_, paper, paper_headers = call("GET", f"{attempts}/{attempt['id']}/paper", token=student, expect=200)
+paper_item = paper["items"][0]
+assert paper["title"] == "Smoke test" and paper_headers["Cache-Control"] == "no-store", paper
+assert (paper_item["exam_item_id"], paper_item["title"], paper_item["prompt_markdown"]) == (item["id"], "Sum two numbers", "Print a + b."), paper_item
+assert paper_item["latest_answer"] == {"language": "python3", "source": source, "revision_number": 1}, paper_item
+assert "source_object_key" not in json.dumps(paper), paper
+ok("the paper shows the statement and gives back the saved code")
 
 def run_code(code):
     _, started, _ = call("POST", f"{attempts}/{attempt['id']}/items/{item['id']}/runs",
@@ -244,6 +263,35 @@ ok("a broken run shows the error output")
 _, runs, _ = call("GET", f"{attempts}/{attempt['id']}/items/{item['id']}/runs", token=student, expect=200)
 assert [r["id"] for r in runs["items"]] == [broken["id"], result["id"]] and runs["items"][1]["passed_units"] == 2, runs
 ok("run history lists runs newest first")
+
+_, custom, _ = call("POST", f"{attempts}/{attempt['id']}/items/{item['id']}/runs",
+                    {"language": "python3", "source": source, "input": "20 22\n"}, token=student, expect=202)
+for _ in range(60):
+    _, custom, _ = call("GET", f"{attempts}/{attempt['id']}/runs/{custom['id']}", token=student, expect=200)
+    if custom["lifecycle_state"] in ("completed", "failed"):
+        break
+    time.sleep(1)
+assert len(custom["units"]) == 1 and custom["units"][0]["stdout"] == "42\n", custom
+ok("a custom-input run returns the program's output for the student's own input")
+
+submissions_path = f"{attempts}/{attempt['id']}/items/{item['id']}/submissions"
+_, item_submission, _ = call("POST", submissions_path, token=student, expect=202)
+_, again, _ = call("POST", submissions_path, token=student, expect=202)
+assert again["id"] == item_submission["id"], (item_submission, again)
+for _ in range(60):
+    _, listed, _ = call("GET", submissions_path, token=student, expect=200)
+    judged = [s for s in listed["items"] if s["id"] == item_submission["id"] and s["lifecycle_state"] == "completed"]
+    if judged:
+        break
+    time.sleep(1)
+else:
+    sys.exit(f"FAIL the per-question submit was never judged: {listed}")
+judged = judged[0]
+assert (judged["passed_units"], judged["total_units"], judged["verdict_counts"]) == (3, 4, {"accepted": 3, "wrong_answer": 1}), judged
+assert "stdin" not in json.dumps(listed) and "unit_number" not in json.dumps(listed), listed
+_, attempt, _ = call("GET", f"{attempts}/{attempt['id']}", token=student, expect=200)
+assert attempt["lifecycle_state"] == "active", attempt
+ok("Submit judges all tests, shows hidden ones as counts only, and leaves the exam running")
 call("POST", f"{attempts}/{attempt['id']}/submit", {"expected_attempt_version": revision["attempt_version"]}, token=student, expect=202)
 for _ in range(60):
     _, attempt, _ = call("GET", f"{attempts}/{attempt['id']}", token=student, expect=200)

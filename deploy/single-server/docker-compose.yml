@@ -463,8 +463,10 @@ services:
       GATEWAY_IDENTITY_ASSERTION_ISSUER: aethercode-identity
       GATEWAY_IDENTITY_ASSERTION_AUDIENCE: aethercode
       GATEWAY_IDENTITY_ASSERTION_PUBLIC_KEYS: ${IDENTITY_ASSERTION_PUBLIC_KEYS}
-      # The host nginx reaches the gateway through the Docker bridge address.
-      GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-[]}
+      # The frontend (ADR-0024) forwards each student's address from its fixed
+      # edge address; the host nginx reaches the gateway through the Docker
+      # bridge address. A .env value must list both.
+      GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-["172.31.240.2/32"]}
       # Every candidate request to Submission passes the SEB lockdown check
       # (ADR-0022); SEB hashes the URL at the public origin.
       GATEWAY_SEB_PROTECTED_PREFIXES: '["/api/submission/v1/tenants"]'
@@ -474,6 +476,32 @@ services:
     ports:
       # Loopback only: the public address is the host nginx (nginx-site.conf).
       - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    networks:
+      default:
+      edge:
+
+  # The web UI (ADR-0024). The host nginx sends every request here; /api is
+  # proxied to the gateway over the edge network with the session's bearer.
+  frontend:
+    restart: always
+    build: { context: ../../frontend }
+    environment:
+      GATEWAY_URL: http://gateway:8080
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is not set; see setup.sh}
+    depends_on: [gateway]
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    networks:
+      edge:
+        ipv4_address: 172.31.240.2
+
+# Only the frontend and the gateway share this network, so the frontend's
+# fixed address is the one the gateway trusts for X-Forwarded-For.
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.31.240.0/29
 
 volumes:
   piston-packages:
