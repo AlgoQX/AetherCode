@@ -34,6 +34,7 @@ type appService interface {
 	HardDeleteExam(context.Context, centralauthz.Capability, app.DeleteExam) error
 	CreateExamVersion(context.Context, centralauthz.Capability, app.CreateExamVersion) (app.ExamVersion, error)
 	GetExamVersion(context.Context, centralauthz.Capability, app.GetExamVersion) (app.ExamVersion, error)
+	GetExamVersionContent(context.Context, centralauthz.Capability, app.GetExamVersion) (json.RawMessage, error)
 	AddExamSection(context.Context, centralauthz.Capability, app.AddExamSection) (app.ExamSection, error)
 	AddExamItem(context.Context, centralauthz.Capability, app.AddExamItem) (app.ExamItem, error)
 	RemoveExamSection(context.Context, centralauthz.Capability, app.RemoveExamSection) error
@@ -79,6 +80,7 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("DELETE /v1/tenants/{tenant_id}/exams/{exam_id}/hard", handler.hardDeleteExam)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exams/{exam_id}/versions", handler.createExamVersion)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}", handler.getExamVersion)
+	mux.HandleFunc("GET /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/content", handler.getExamVersionContent)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections", handler.addExamSection)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}/items", handler.addExamItem)
 	mux.HandleFunc("DELETE /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}", handler.removeExamSection)
@@ -322,6 +324,34 @@ func (handler *Handler) getExamVersion(writer http.ResponseWriter, request *http
 		return
 	}
 	httpx.WriteJSON(writer, http.StatusOK, examVersion)
+}
+
+// getExamVersionContent returns the version's sections, items and
+// assignment rules (the staff exam builder).
+func (handler *Handler) getExamVersionContent(writer http.ResponseWriter, request *http.Request) {
+	tenantID, err := tenantID(request)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	versionID, err := httpx.ParseUUIDPathValue(request, "exam_version_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "read", "exam_versions", versionID, tenantID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	content, err := handler.service.GetExamVersionContent(request.Context(), decision.Capability, app.GetExamVersion{TenantID: tenantID, ExamVersionID: versionID})
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	_, _ = writer.Write(content)
 }
 
 type addExamSectionRequest struct {

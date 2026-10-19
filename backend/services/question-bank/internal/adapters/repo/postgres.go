@@ -258,6 +258,18 @@ func (repository *Postgres) ListPublishedQuestions(contextValue context.Context,
 	return questions, nil
 }
 
+func (repository *Postgres) ListDraftQuestions(contextValue context.Context, transaction pgx.Tx, limit int) ([]app.QuestionDetail, error) {
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, `SELECT qbank.list_draft_questions($1)`, limit).Scan(&raw); err != nil {
+		return nil, mapCommandError(err, "list draft questions")
+	}
+	var questions []app.QuestionDetail
+	if err := json.Unmarshal(raw, &questions); err != nil {
+		return nil, fmt.Errorf("decode draft question list: %w", err)
+	}
+	return questions, nil
+}
+
 func (repository *Postgres) ListQuestionVersions(contextValue context.Context, transaction pgx.Tx, command app.ListQuestionVersions) ([]app.QuestionVersion, error) {
 	var raw json.RawMessage
 	err := transaction.QueryRow(contextValue, `

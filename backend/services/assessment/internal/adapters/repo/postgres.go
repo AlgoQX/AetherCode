@@ -258,12 +258,13 @@ func (repository *Postgres) AddExamSection(ctx context.Context, transaction pgx.
 
 func (repository *Postgres) AddExamItem(ctx context.Context, transaction pgx.Tx, command app.AddExamItem) (app.ExamItem, error) {
 	if _, err := transaction.Exec(ctx, `
-		SELECT assessment.add_exam_item($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		SELECT assessment.add_exam_item($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	`, command.ID, command.TenantID, command.ExamVersionID, command.SectionID, command.ExpectedContentVersion,
 		command.Position, command.Resolved.QuestionID, command.QuestionVersionID, command.MaximumScore,
 		command.Resolved.EvaluationBundle.ObjectKey, command.Resolved.EvaluationBundle.SHA256, command.Resolved.EvaluationBundle.KeyReference,
 		command.Resolved.SampleBundle.ObjectKey, command.Resolved.SampleBundle.SHA256, command.Resolved.SampleBundle.KeyReference,
-		command.Resolved.TimeLimitMS, command.Resolved.MemoryLimitKiB, command.Resolved.SupportedLanguages); err != nil {
+		command.Resolved.TimeLimitMS, command.Resolved.MemoryLimitKiB, command.Resolved.SupportedLanguages,
+		command.Resolved.Title, command.Resolved.PromptMarkdown); err != nil {
 		return app.ExamItem{}, mapWriteError(err, "exam item could not be added")
 	}
 	item, err := selectExamItem(ctx, transaction, command.ID, command.TenantID)
@@ -390,6 +391,15 @@ func (repository *Postgres) RevokeCandidateAssignment(ctx context.Context, trans
 		return app.CandidateAssignment{}, err
 	}
 	return assignment, nil
+}
+
+func (repository *Postgres) GetExamVersionContent(ctx context.Context, transaction pgx.Tx, command app.GetExamVersion) (json.RawMessage, error) {
+	var content json.RawMessage
+	if err := transaction.QueryRow(ctx, `SELECT assessment.get_exam_version_content($1, $2)`,
+		command.TenantID, command.ExamVersionID).Scan(&content); err != nil {
+		return nil, mapWriteError(err, "exam version content could not be read")
+	}
+	return content, nil
 }
 
 func (repository *Postgres) GetExamVersion(ctx context.Context, transaction pgx.Tx, command app.GetExamVersion) (app.ExamVersion, error) {

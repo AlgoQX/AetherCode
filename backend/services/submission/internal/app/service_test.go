@@ -58,6 +58,18 @@ func (validationStore) ListAnswerRevisions(context.Context, pgx.Tx, ListAnswerRe
 func (validationStore) GetAttemptUnitSummary(context.Context, pgx.Tx, GetAttempt) ([]AttemptUnitSummary, error) {
 	return nil, nil
 }
+func (validationStore) GetAttemptPaper(context.Context, pgx.Tx, GetAttempt) (StoredPaper, error) {
+	return StoredPaper{}, nil
+}
+func (validationStore) StartCustomRun(context.Context, pgx.Tx, RunCode) (CodeRun, error) {
+	return CodeRun{}, nil
+}
+func (validationStore) SubmitItem(context.Context, pgx.Tx, SubmitItem) (ItemSubmission, error) {
+	return ItemSubmission{}, nil
+}
+func (validationStore) ListItemSubmissions(context.Context, pgx.Tx, SubmitItem) ([]ItemSubmission, error) {
+	return nil, nil
+}
 func (validationStore) ListAttemptUnitResults(context.Context, pgx.Tx, GetAttempt) ([]AttemptUnitResults, error) {
 	return nil, nil
 }

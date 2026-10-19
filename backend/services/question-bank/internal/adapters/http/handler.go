@@ -446,6 +446,16 @@ func (handler *Handler) listPublishedQuestions(writer http.ResponseWriter, reque
 		return
 	}
 	query := request.URL.Query()
+	// ?status=draft lists the caller's own drafts instead.
+	if query.Get("status") == "draft" {
+		page, draftErr := handler.service.ListDraftQuestions(request.Context(), decision.Capability, limit)
+		if draftErr != nil {
+			httpx.WriteError(writer, draftErr)
+			return
+		}
+		httpx.WriteJSON(writer, http.StatusOK, page)
+		return
+	}
 	difficulty, err := httpx.ParseEnumQuery(request, "difficulty", "easy", "medium", "hard")
 	if err != nil {
 		httpx.WriteError(writer, err)

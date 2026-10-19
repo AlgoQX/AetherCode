@@ -41,6 +41,7 @@ func (server *Server) ResolvePublishedQuestionVersion(contextValue context.Conte
 		MemoryLimitKib:     uint32(resolved.MemoryLimitKiB),
 		EvaluationBundle:   bundle(resolved.Evaluation),
 		SampleBundle:       bundle(resolved.Sample),
+		PromptMarkdown:     resolved.PromptMarkdown,
 	}, nil
 }
 

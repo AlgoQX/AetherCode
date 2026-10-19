@@ -27,8 +27,8 @@ the platform (≈10–12 focused days). Until M8, exams run on `apps/exam-v1`.
 | M2 | Authoring | Staff write a question with plaintext tests (bundles built and encrypted server-side), build an exam from it, and assign it to a batch. | done (2026-10-04, ADR-0020; `smoke.py`) |
 | M3 | Take and grade | A student starts, saves code, runs samples and submits. Dispatch → judge (decrypt) → Judge0 → score. Time-up submits latest answers. | done (2026-10-05, ADR-0021; `smoke.py`) |
 | M4 | SEB | Per-request SEB key validation that works with a real SEB browser, plus `.seb` launch-file download (ADR-0022). | Done 2026-10-05 |
-| M5 | Frontend | `frontend/` ports the exam-app screens (login, admin, authoring, exam screen, results) onto the gateway. | — |
-| M6 | Results and operations | Faculty results/CSV, result release, live monitor, extend time, announcements, backups and system status. | — |
+| M5 | Frontend | `frontend/` ports the exam-app screens (login, admin, authoring, exam screen, results) onto the gateway. | done in code (2026-10-19, ADR-0023 to 0026); needs `smoke.py` on the campus stack |
+| M6 | Results and operations | Faculty results/CSV, result release, live monitor, extend time, announcements, backups and system status. | in progress: results and CSV done; release, monitor, extend time, announcements remain |
 | M7 | Remaining parity | Pools, MCQ, network allow-list, preview, similarity, audit log, model-solution check, import/export, duplicate, login slips. | — |
 | M8 | Cut-over | The ported e2e spec, `engine-check` and a 1000-student load test pass on the stack. `apps/exam-v1` is deleted. | — |
 
@@ -80,6 +80,17 @@ Done 2026-10-05, verified end to end through the gateway by `smoke.py`:
   missing column; only its launch-file encoding was reused.
 - Not in M4: SEB quit-token sessions stay as they were (not on Gateway's
   path); a frontend `/exam/<id>` page for the launch file to open is M5.
+
+Done 2026-10-19 (code; integration-tested, not yet on the campus stack):
+- M5 web frontend (`frontend/`, ADR-0024): students sign in, see their exams,
+  take them in a HackerRank-style screen with Run, custom input, per-question
+  Submit and End test (ADR-0025, best submission counts); staff import
+  students, author questions, build, publish and assign exams, lock them to
+  SEB, and see results with CSV export.
+- Backend gaps found on the way: no candidate paper or saved-code read, no
+  "who am I", no exam title on assignments (ADR-0023); exams assigned to a
+  placement department reached nobody (ADR-0026); no draft-question list or
+  exam-content read for staff; exam results capped at 500 rows.
 
 ---
 

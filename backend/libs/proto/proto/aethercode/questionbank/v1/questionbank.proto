@@ -41,4 +41,6 @@ message ResolvePublishedQuestionVersionResponse {
   EncryptedBundle evaluation_bundle = 8;
   // Sample tests only; used for candidate "run code".
   EncryptedBundle sample_bundle = 9;
+  // The published statement candidates read (Markdown).
+  string prompt_markdown = 10;
 }

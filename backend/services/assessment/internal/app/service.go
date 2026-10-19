@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	centralauthz "github.com/aethercode/aethercode/libs/pkg/authz"
 	"github.com/aethercode/aethercode/libs/pkg/database"
@@ -55,6 +56,7 @@ type Store interface {
 	MaterializeDirectCandidateAssignment(context.Context, pgx.Tx, MaterializeDirectCandidateAssignment) (CandidateAssignment, error)
 	RevokeCandidateAssignment(context.Context, pgx.Tx, RevokeCandidateAssignment) (CandidateAssignment, error)
 	GetExamVersion(context.Context, pgx.Tx, GetExamVersion) (ExamVersion, error)
+	GetExamVersionContent(context.Context, pgx.Tx, GetExamVersion) (json.RawMessage, error)
 	GetCandidateAssignment(context.Context, pgx.Tx, GetCandidateAssignment) (CandidateAssignment, error)
 	GetExam(context.Context, pgx.Tx, string, string) (Exam, error)
 	GetExamIncludeDeleted(context.Context, pgx.Tx, string, string) (Exam, error)
@@ -92,6 +94,8 @@ type EncryptedBundle struct {
 type ResolvedQuestionVersion struct {
 	QuestionID         string
 	QuestionVersionID  string
+	Title              string
+	PromptMarkdown     string
 	EvaluationBundle   EncryptedBundle
 	SampleBundle       EncryptedBundle
 	TimeLimitMS        int
@@ -265,18 +269,24 @@ type AssignmentRule struct {
 }
 
 type CandidateAssignment struct {
-	ID               string     `json:"id"`
-	TenantID         string     `json:"tenant_id"`
-	AssignmentRuleID string     `json:"assignment_rule_id"`
-	ExamVersionID    string     `json:"exam_version_id"`
-	CandidateID      string     `json:"candidate_id"`
-	AvailableFrom    time.Time  `json:"available_from"`
-	AvailableUntil   time.Time  `json:"available_until"`
-	LifecycleState   string     `json:"lifecycle_state"`
-	AssignedAt       time.Time  `json:"assigned_at"`
-	RevokedAt        *time.Time `json:"revoked_at,omitempty"`
-	CompletedAt      *time.Time `json:"completed_at,omitempty"`
-	Version          int64      `json:"version"`
+	ID               string `json:"id"`
+	TenantID         string `json:"tenant_id"`
+	AssignmentRuleID string `json:"assignment_rule_id"`
+	ExamVersionID    string `json:"exam_version_id"`
+	CandidateID      string `json:"candidate_id"`
+	// The exam's id, title, instructions and duration, so the candidate's
+	// dashboard needs no staff read. Set by the candidate list only.
+	ExamID               string     `json:"exam_id,omitempty"`
+	Title                string     `json:"title,omitempty"`
+	InstructionsMarkdown string     `json:"instructions_markdown,omitempty"`
+	DurationSeconds      int        `json:"duration_seconds,omitempty"`
+	AvailableFrom        time.Time  `json:"available_from"`
+	AvailableUntil       time.Time  `json:"available_until"`
+	LifecycleState       string     `json:"lifecycle_state"`
+	AssignedAt           time.Time  `json:"assigned_at"`
+	RevokedAt            *time.Time `json:"revoked_at,omitempty"`
+	CompletedAt          *time.Time `json:"completed_at,omitempty"`
+	Version              int64      `json:"version"`
 }
 
 type CreateProctorPolicy struct {
@@ -570,7 +580,8 @@ func (service *Service) AddExamItem(ctx context.Context, capability centralauthz
 		return ExamItem{}, err
 	}
 	if resolved.QuestionVersionID != command.QuestionVersionID || !validID(resolved.QuestionID) ||
-		!validBundle(resolved.EvaluationBundle) || !validBundle(resolved.SampleBundle) || !validExecution(resolved) {
+		!validBundle(resolved.EvaluationBundle) || !validBundle(resolved.SampleBundle) || !validExecution(resolved) ||
+		!validStatement(resolved) {
 		return ExamItem{}, fmt.Errorf("question bank returned an invalid question version")
 	}
 	command.Resolved = resolved
@@ -704,6 +715,22 @@ func (service *Service) RevokeCandidateAssignment(ctx context.Context, capabilit
 	)
 }
 
+// GetExamVersionContent returns an exam version's sections, items and
+// assignment rules for the staff exam builder.
+func (service *Service) GetExamVersionContent(ctx context.Context, capability centralauthz.Capability, command GetExamVersion) (json.RawMessage, error) {
+	command.TenantID, command.ExamVersionID = normalizeID(command.TenantID), normalizeID(command.ExamVersionID)
+	if !validID(command.TenantID) || !validID(command.ExamVersionID) {
+		return nil, invalid("exam version IDs are invalid")
+	}
+	var content json.RawMessage
+	err := database.WithTenantTx(ctx, service.pool, capability, func(transaction pgx.Tx) error {
+		var storeErr error
+		content, storeErr = service.store.GetExamVersionContent(ctx, transaction, command)
+		return storeErr
+	})
+	return content, err
+}
+
 func (service *Service) GetExamVersion(ctx context.Context, capability centralauthz.Capability, command GetExamVersion) (ExamVersion, error) {
 	command.TenantID, command.ExamVersionID = normalizeID(command.TenantID), normalizeID(command.ExamVersionID)
 	if !validID(command.TenantID) || !validID(command.ExamVersionID) {
@@ -828,6 +855,14 @@ func validBundle(bundle EncryptedBundle) bool {
 
 // validExecution mirrors the bounds the exam_items columns enforce, so a bad
 // Question Bank response fails here rather than inside the write transaction.
+// validStatement mirrors exam_items' bounds on the pinned title and statement.
+func validStatement(resolved ResolvedQuestionVersion) bool {
+	title := utf8.RuneCountInString(resolved.Title)
+	prompt := utf8.RuneCountInString(resolved.PromptMarkdown)
+	return strings.TrimSpace(resolved.Title) != "" && title <= 300 &&
+		strings.TrimSpace(resolved.PromptMarkdown) != "" && prompt <= 200000
+}
+
 func validExecution(resolved ResolvedQuestionVersion) bool {
 	if resolved.TimeLimitMS < 50 || resolved.TimeLimitMS > 600_000 ||
 		resolved.MemoryLimitKiB < 1024 || resolved.MemoryLimitKiB > 4_194_304 ||

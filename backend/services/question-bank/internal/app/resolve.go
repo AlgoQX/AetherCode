@@ -15,13 +15,14 @@ type PublishedVersionStore interface {
 	ResolvePublishedQuestionVersion(context.Context, string) (ResolvedQuestionVersion, error)
 }
 
-// ResolvedQuestionVersion is what an exam item pins: limits and the encrypted
-// evaluation and sample bundles. It never carries test content.
+// ResolvedQuestionVersion is what an exam item pins: the statement, limits and
+// the encrypted evaluation and sample bundles. It never carries test content.
 type ResolvedQuestionVersion struct {
 	QuestionID         string
 	QuestionVersionID  string
 	VersionNumber      int
 	Title              string
+	PromptMarkdown     string
 	SupportedLanguages []string
 	TimeLimitMS        int
 	MemoryLimitKiB     int

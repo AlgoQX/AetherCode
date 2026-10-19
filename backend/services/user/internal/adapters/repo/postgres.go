@@ -765,12 +765,13 @@ func studentBatchAffiliationCommandScope(operation, tenantID, studentID, actorID
 
 func (repository *Postgres) enqueueStudentBatchAffiliationSnapshot(contextValue context.Context, transaction pgx.Tx, affiliation app.StudentBatchAffiliation) error {
 	var principalID string
+	var placementDepartmentID *string
 	if err := transaction.QueryRow(contextValue, `
-		SELECT users.student_batch_principal($1, $2)::text
-	`, affiliation.TenantID, affiliation.StudentID).Scan(&principalID); err != nil {
+		SELECT users.student_batch_principal($1, $2)::text, users.student_placement_department($1, $2)::text
+	`, affiliation.TenantID, affiliation.StudentID).Scan(&principalID, &placementDepartmentID); err != nil {
 		return mapWriteError(err, "student batch affiliation snapshot could not be built")
 	}
-	payload, err := studentBatchAffiliationSnapshotPayload(affiliation, principalID)
+	payload, err := studentBatchAffiliationSnapshotPayload(affiliation, principalID, placementDepartmentID)
 	if err != nil {
 		return err
 	}
@@ -782,17 +783,20 @@ func (repository *Postgres) enqueueStudentBatchAffiliationSnapshot(contextValue 
 
 // studentBatchAffiliationSnapshotPayload names the student's principal as well
 // as its student record: consumers grant access by principal.
-func studentBatchAffiliationSnapshotPayload(affiliation app.StudentBatchAffiliation, principalID string) (json.RawMessage, error) {
+// placementDepartmentID is the student's current placement department, so
+// exams assigned to it reach the student (ADR-0026).
+func studentBatchAffiliationSnapshotPayload(affiliation app.StudentBatchAffiliation, principalID string, placementDepartmentID *string) (json.RawMessage, error) {
 	payload, err := json.Marshal(struct {
-		TenantID       string  `json:"tenant_id"`
-		StudentID      string  `json:"student_id"`
-		PrincipalID    string  `json:"principal_id"`
-		BatchID        *string `json:"batch_id"`
-		LifecycleState string  `json:"lifecycle_state"`
-		Version        int     `json:"version"`
+		TenantID              string  `json:"tenant_id"`
+		StudentID             string  `json:"student_id"`
+		PrincipalID           string  `json:"principal_id"`
+		BatchID               *string `json:"batch_id"`
+		PlacementDepartmentID *string `json:"placement_department_id"`
+		LifecycleState        string  `json:"lifecycle_state"`
+		Version               int     `json:"version"`
 	}{
 		TenantID: affiliation.TenantID, StudentID: affiliation.StudentID, PrincipalID: principalID,
-		BatchID: affiliation.BatchID, LifecycleState: affiliation.LifecycleState,
+		BatchID: affiliation.BatchID, PlacementDepartmentID: placementDepartmentID, LifecycleState: affiliation.LifecycleState,
 		Version: affiliation.Version,
 	})
 	if err != nil {

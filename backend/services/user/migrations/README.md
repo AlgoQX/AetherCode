@@ -34,3 +34,7 @@ refuses to discard durable identity resync history.
 own `validation_events` authorization resource. SEB independently binds the
 signed context actor to the attempt session's candidate, so this policy grants
 no access to another candidate's opaque session ID.
+
+`000027_snapshot_placement_department` adds
+`users.student_placement_department`, so the batch affiliation snapshot names
+the student's placement department (ADR-0026).

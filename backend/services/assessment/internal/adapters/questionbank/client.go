@@ -116,6 +116,8 @@ func (client *Client) ResolvePublishedQuestionVersion(ctx context.Context, quest
 	return app.ResolvedQuestionVersion{
 		QuestionID:         response.GetQuestionId(),
 		QuestionVersionID:  response.GetQuestionVersionId(),
+		Title:              response.GetTitle(),
+		PromptMarkdown:     response.GetPromptMarkdown(),
 		EvaluationBundle:   bundle(response.GetEvaluationBundle()),
 		SampleBundle:       bundle(response.GetSampleBundle()),
 		TimeLimitMS:        int(response.GetTimeLimitMs()),

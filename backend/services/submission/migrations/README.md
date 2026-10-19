@@ -75,3 +75,19 @@ role; `claim_code_runs`, `mark_code_run_dispatched`, `mark_code_run_failed`,
 `000025_time_up_uuidv7` makes time-up mint its evaluation request and event
 ids with `uuidv7()`: Judge refuses a correlation id that is not a UUIDv7, so
 000023's version 4 ids failed every time-up request.
+
+`000026_candidate_paper` stores the snapshot's exam title and instructions and
+each item's position, title and statement, and adds the owner-bound
+`get_attempt_paper_for_candidate` for the app role (ADR-0023).
+`apply_assignment_snapshot` gains `p_title` and `p_instructions_markdown`.
+Rollback restores the 000023 signature.
+
+`000027_item_submit` adds per-question submits and custom-input runs
+(ADR-0025): `evaluation_requests.origin`, `code_runs.kind` and the custom
+bundle columns, `evaluation_score`, `submit_item`,
+`list_item_submissions_for_candidate` and `start_custom_run`. Grading now
+runs only for a `grading` attempt and scores each item's best evaluation
+(`calculation_version` 3). `prepare_submission`, `submit_attempt` and
+`expire_overdue_attempts` skip revisions already evaluated and grade at once
+when nothing new is queued. `claim_code_runs` prefers a run's own bundle.
+Rollback restores the 000022 to 000026 functions and drops custom runs.

@@ -154,10 +154,11 @@ make test-migrations
 
 `QuestionBankInternalService.ResolvePublishedQuestionVersion`
 (`libs/proto/proto/aethercode/questionbank/v1`) lets Assessment pin a
-published version to an exam item: its limits, languages and the encrypted
-evaluation and sample bundle references. It never returns test content, and
-anything other than a published version of a live question is `NOT_FOUND`.
-It reads `qbank.resolve_published_question_version` (migration 000012)
+published version to an exam item: its title and statement, limits,
+languages and the encrypted evaluation and sample bundle references. It never
+returns test content, and anything other than a published version of a live
+question is `NOT_FOUND`. It reads `qbank.resolve_published_question_version`
+(migrations 000012, 000013)
 without a user capability; mTLS is the gate.
 
 | Variable | Default | Meaning |

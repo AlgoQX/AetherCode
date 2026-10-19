@@ -98,6 +98,31 @@ paths:
         '400': { $ref: '#/components/responses/Problem400' }
         '403': { $ref: '#/components/responses/Problem403' }
         '404': { $ref: '#/components/responses/Problem404' }
+  /v1/tenants/{tenant_id}/attempts/{attempt_id}/paper:
+    get:
+      summary: The exam paper of an attempt the caller owns (ADR-0023)
+      description: >-
+        The exam's title and instructions, each item's statement, limits and
+        languages in exam order, and the caller's latest saved answer for each
+        item, decrypted. Sent with Cache-Control no-store. Items snapshotted
+        before Assessment migration 000026 are titled "Question N" with an
+        empty statement.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+      responses:
+        '200':
+          description: The paper.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paper'
+        '400': { $ref: '#/components/responses/Problem400' }
+        '403': { $ref: '#/components/responses/Problem403' }
+        '404': { $ref: '#/components/responses/Problem404' }
+        '503': { $ref: '#/components/responses/Problem503' }
   /v1/tenants/{tenant_id}/attempts/{attempt_id}/answers:
     get:
       summary: List answer-revision metadata for an attempt the caller owns (keyset paged)
@@ -256,6 +281,14 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 65536
+                input:
+                  type: string
+                  maxLength: 65536
+                  description: >-
+                    Run against this stdin instead of the sample tests
+                    (ADR-0025). The result has one unit whose stdout is the
+                    program's output; its verdict compares against empty
+                    expected output.
       responses:
         '202':
           description: The run was queued for Judge.
@@ -294,6 +327,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CodeRunPage'
+        '400': { $ref: '#/components/responses/Problem400' }
+        '403': { $ref: '#/components/responses/Problem403' }
+        '404': { $ref: '#/components/responses/Problem404' }
+  /v1/tenants/{tenant_id}/attempts/{attempt_id}/items/{exam_item_id}/submissions:
+    post:
+      summary: Submit the item's latest saved code against all of its tests (ADR-0025)
+      description: >-
+        Accepted while the attempt is active, up to the deadline plus a
+        15-second grace. Submitting unchanged code returns the existing
+        evaluation. At most two evaluations may be open per attempt; a 409
+        carries a message meant for the candidate. Each item scores its best
+        evaluation when the attempt is graded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+        - $ref: '#/components/parameters/ExamItemID'
+      responses:
+        '202':
+          description: The evaluation was queued for Judge.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemSubmission'
+        '400': { $ref: '#/components/responses/Problem400' }
+        '403': { $ref: '#/components/responses/Problem403' }
+        '404': { $ref: '#/components/responses/Problem404' }
+        '409': { $ref: '#/components/responses/Problem409' }
+        '429':
+          description: Too many runs and submissions; retry after the Retry-After seconds.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      summary: The caller's evaluations of one item, newest first (at most 50)
+      description: Hidden tests appear only as counts per verdict.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+        - $ref: '#/components/parameters/ExamItemID'
+      responses:
+        '200':
+          description: The item's evaluations.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ItemSubmission' }
         '400': { $ref: '#/components/responses/Problem400' }
         '403': { $ref: '#/components/responses/Problem403' }
         '404': { $ref: '#/components/responses/Problem404' }
@@ -470,6 +559,61 @@ components:
               compile_output: { type: [string, 'null'] }
               execution_time_ms: { type: [integer, 'null'] }
               memory_kib: { type: [integer, 'null'] }
+    ItemSubmission:
+      type: object
+      additionalProperties: false
+      required: [id, origin, lifecycle_state, queued_at, completed_at, verdict, score, passed_units, total_units, verdict_counts]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        origin: { type: string, enum: [item_submit, final] }
+        lifecycle_state: { type: string, enum: [queued, dispatched, completed, failed, cancelled] }
+        language_id: { type: string }
+        revision_number: { type: integer, minimum: 1 }
+        queued_at: { type: string, format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
+        verdict: { type: [string, 'null'] }
+        score: { type: [string, 'null'], description: Null until judged. }
+        maximum_score: { type: string }
+        passed_units: { type: [integer, 'null'] }
+        total_units: { type: [integer, 'null'] }
+        verdict_counts:
+          type: object
+          additionalProperties: { type: integer, minimum: 1 }
+          description: Number of tests per verdict, for example {"accepted":3,"wrong_answer":1}.
+    Paper:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, exam_id, title, instructions_markdown, items]
+      properties:
+        attempt_id: { $ref: '#/components/schemas/UUID' }
+        exam_id: { $ref: '#/components/schemas/UUID' }
+        title: { type: string }
+        instructions_markdown: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [exam_item_id, position, title, prompt_markdown, maximum_score, supported_languages, time_limit_ms, memory_limit_kib, latest_answer]
+            properties:
+              exam_item_id: { $ref: '#/components/schemas/UUID' }
+              position: { type: integer, minimum: 1 }
+              title: { type: string }
+              prompt_markdown: { type: string }
+              maximum_score: { type: string }
+              supported_languages: { type: array, items: { type: string } }
+              time_limit_ms: { type: integer, minimum: 0 }
+              memory_limit_kib: { type: integer, minimum: 0 }
+              latest_answer:
+                oneOf:
+                  - type: 'null'
+                  - type: object
+                    additionalProperties: false
+                    required: [language, source, revision_number]
+                    properties:
+                      language: { type: string }
+                      source: { type: string }
+                      revision_number: { type: integer, minimum: 1 }
     CodeRunPage:
       type: object
       additionalProperties: false

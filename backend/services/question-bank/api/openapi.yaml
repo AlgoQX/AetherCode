@@ -31,6 +31,13 @@ paths:
           in: query
           schema: {type: integer, minimum: 1, maximum: 100, default: 20}
         - {$ref: '#/components/parameters/Cursor'}
+        - name: status
+          in: query
+          description: >-
+            draft lists the caller's own questions whose latest version is a
+            draft (the other filters do not apply); otherwise published
+            questions are listed.
+          schema: {type: string, enum: [published, draft]}
         - name: difficulty
           in: query
           schema: {type: string, enum: [easy, medium, hard]}

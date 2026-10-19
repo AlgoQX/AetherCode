@@ -22,14 +22,14 @@ func (repository *Postgres) ResolvePublishedQuestionVersion(contextValue context
 		       out_time_limit_ms, out_memory_limit_kib,
 		       out_evaluation_object_key, out_evaluation_checksum, out_evaluation_key_reference,
 		       out_sample_object_key, out_sample_checksum, out_sample_key_reference,
-		       out_sample_count, out_hidden_count
+		       out_sample_count, out_hidden_count, out_prompt_markdown
 		FROM qbank.resolve_published_question_version($1)
 	`, questionVersionID).Scan(
 		&resolved.QuestionID, &resolved.VersionNumber, &resolved.Title, &languages,
 		&resolved.TimeLimitMS, &resolved.MemoryLimitKiB,
 		&resolved.Evaluation.ObjectKey, &resolved.Evaluation.SHA256, &resolved.Evaluation.KeyReference,
 		&resolved.Sample.ObjectKey, &resolved.Sample.SHA256, &resolved.Sample.KeyReference,
-		&sampleCount, &hiddenCount,
+		&sampleCount, &hiddenCount, &resolved.PromptMarkdown,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return app.ResolvedQuestionVersion{}, apperrors.New(apperrors.CodeNotFound, "published question version not found")

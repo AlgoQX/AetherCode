@@ -66,6 +66,7 @@ type Store interface {
 	GetQuestionIncludeDeleted(context.Context, pgx.Tx, string) (Question, error)
 	GetQuestionVersionIncludeDeleted(context.Context, pgx.Tx, string) (QuestionVersion, error)
 	ListPublishedQuestions(context.Context, pgx.Tx, ListPublishedQuestions) ([]QuestionDetail, error)
+	ListDraftQuestions(context.Context, pgx.Tx, int) ([]QuestionDetail, error)
 	ListQuestionVersions(context.Context, pgx.Tx, ListQuestionVersions) ([]QuestionVersion, error)
 	SoftDeleteQuestion(context.Context, pgx.Tx, DeleteQuestion) error
 	HardDeleteQuestion(context.Context, pgx.Tx, DeleteQuestion) error
@@ -548,6 +549,26 @@ func (service *Service) GetQuestionVersion(contextValue context.Context, capabil
 		return err
 	})
 	return result, err
+}
+
+// ListDraftQuestions lists the caller's questions whose latest version is
+// still a draft, newest first, for the staff authoring screen.
+func (service *Service) ListDraftQuestions(contextValue context.Context, capability centralauthz.Capability, limit int) (Page[QuestionDetail], error) {
+	if limit < 1 || limit > 100 {
+		return Page[QuestionDetail]{}, apperrors.New(apperrors.CodeInvalidArgument, "question listing limit must be between 1 and 100")
+	}
+	page := Page[QuestionDetail]{Items: []QuestionDetail{}}
+	err := database.WithTenantTx(contextValue, service.pool, capability, func(transaction pgx.Tx) error {
+		questions, err := service.store.ListDraftQuestions(contextValue, transaction, limit)
+		if err != nil {
+			return err
+		}
+		if questions != nil {
+			page.Items = questions
+		}
+		return nil
+	})
+	return page, err
 }
 
 func (service *Service) ListPublishedQuestions(contextValue context.Context, capability centralauthz.Capability, command ListPublishedQuestions) (Page[QuestionDetail], error) {

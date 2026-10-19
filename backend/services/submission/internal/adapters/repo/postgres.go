@@ -409,6 +409,21 @@ func (repository *Postgres) ListAnswerRevisions(contextValue context.Context, tr
 	return revisions, nil
 }
 
+func (repository *Postgres) GetAttemptPaper(contextValue context.Context, transaction pgx.Tx, command app.GetAttempt) (app.StoredPaper, error) {
+	var raw json.RawMessage
+	err := transaction.QueryRow(contextValue, `
+		SELECT submission.get_attempt_paper_for_candidate($1, $2)
+	`, command.TenantID, command.AttemptID).Scan(&raw)
+	if err != nil {
+		return app.StoredPaper{}, mapDatabaseError(err, "get attempt paper")
+	}
+	var paper app.StoredPaper
+	if err := json.Unmarshal(raw, &paper); err != nil {
+		return app.StoredPaper{}, fmt.Errorf("decode attempt paper: %w", err)
+	}
+	return paper, nil
+}
+
 func (repository *Postgres) GetAttemptUnitSummary(contextValue context.Context, transaction pgx.Tx, command app.GetAttempt) ([]app.AttemptUnitSummary, error) {
 	var raw json.RawMessage
 	err := transaction.QueryRow(contextValue, `
@@ -511,6 +526,54 @@ func (repository *Postgres) StartCodeRun(contextValue context.Context, transacti
 		return app.CodeRun{}, fmt.Errorf("decode started code run: %w", err)
 	}
 	return run, nil
+}
+
+func (repository *Postgres) StartCustomRun(contextValue context.Context, transaction pgx.Tx, command app.RunCode) (app.CodeRun, error) {
+	var raw json.RawMessage
+	err := transaction.QueryRow(contextValue, `
+		SELECT submission.start_custom_run($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`, command.ID, command.TenantID, command.AttemptID, command.ExamItemID, command.Language,
+		command.SourceObjectKey, command.SourceChecksum, command.EncryptionKeyReference,
+		command.BundleObjectKey, command.BundleChecksum, command.BundleKeyReference).Scan(&raw)
+	if err != nil {
+		return app.CodeRun{}, mapDatabaseError(err, "start custom run")
+	}
+	var run app.CodeRun
+	if err := json.Unmarshal(raw, &run); err != nil {
+		return app.CodeRun{}, fmt.Errorf("decode started custom run: %w", err)
+	}
+	return run, nil
+}
+
+func (repository *Postgres) SubmitItem(contextValue context.Context, transaction pgx.Tx, command app.SubmitItem) (app.ItemSubmission, error) {
+	var submission app.ItemSubmission
+	var created bool
+	err := transaction.QueryRow(contextValue, `
+		SELECT id, lifecycle_state, queued_at, created
+		FROM submission.submit_item($1, $2, $3, $4, $5)
+	`, command.RequestID, command.OutboxEventID, command.TenantID, command.AttemptID, command.ExamItemID).Scan(
+		&submission.ID, &submission.LifecycleState, &submission.QueuedAt, &created)
+	if err != nil {
+		return app.ItemSubmission{}, mapDatabaseError(err, "submit item")
+	}
+	submission.Origin = "item_submit"
+	submission.VerdictCounts = map[string]int{}
+	return submission, nil
+}
+
+func (repository *Postgres) ListItemSubmissions(contextValue context.Context, transaction pgx.Tx, command app.SubmitItem) ([]app.ItemSubmission, error) {
+	var raw json.RawMessage
+	err := transaction.QueryRow(contextValue, `
+		SELECT submission.list_item_submissions_for_candidate($1, $2, $3)
+	`, command.TenantID, command.AttemptID, command.ExamItemID).Scan(&raw)
+	if err != nil {
+		return nil, mapDatabaseError(err, "list item submissions")
+	}
+	submissions, err := app.DecodeItemSubmissions(raw)
+	if err != nil {
+		return nil, fmt.Errorf("decode item submissions: %w", err)
+	}
+	return submissions, nil
 }
 
 func (repository *Postgres) GetCodeRun(contextValue context.Context, transaction pgx.Tx, command app.GetCodeRun) (app.CodeRun, error) {

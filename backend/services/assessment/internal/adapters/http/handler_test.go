@@ -96,6 +96,10 @@ func (s *stubService) HardDeleteExam(context.Context, centralauthz.Capability, a
 func (s *stubService) CreateExamVersion(context.Context, centralauthz.Capability, app.CreateExamVersion) (app.ExamVersion, error) {
 	panic("CreateExamVersion not expected")
 }
+func (s *stubService) GetExamVersionContent(context.Context, centralauthz.Capability, app.GetExamVersion) (json.RawMessage, error) {
+	return json.RawMessage(`{}`), nil
+}
+
 func (s *stubService) GetExamVersion(context.Context, centralauthz.Capability, app.GetExamVersion) (app.ExamVersion, error) {
 	panic("GetExamVersion not expected")
 }

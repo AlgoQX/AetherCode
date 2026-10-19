@@ -304,6 +304,10 @@ func (s *panicStore) GetPublishedQuestion(context.Context, pgx.Tx, string) (Ques
 func (s *panicStore) GetQuestionVersion(context.Context, pgx.Tx, string) (QuestionVersion, error) {
 	panic("store method called before validation")
 }
+func (s *panicStore) ListDraftQuestions(context.Context, pgx.Tx, int) ([]QuestionDetail, error) {
+	panic("unexpected store call")
+}
+
 func (s *panicStore) ListPublishedQuestions(context.Context, pgx.Tx, ListPublishedQuestions) ([]QuestionDetail, error) {
 	panic("store method called before validation")
 }
