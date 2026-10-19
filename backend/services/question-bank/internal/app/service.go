@@ -50,6 +50,7 @@ var (
 // Store is the service-owned PostgreSQL port. Implementations receive an
 // already authorized transaction and must never create an unscoped one.
 type Store interface {
+	ExportQuestionVersion(context.Context, pgx.Tx, string, string) (StoredExport, error)
 	ClaimIdempotency(context.Context, pgx.Tx, IdempotencyClaim) (json.RawMessage, bool, error)
 	CompleteIdempotency(context.Context, pgx.Tx, IdempotencyClaim, int, json.RawMessage) error
 	CreateQuestion(context.Context, pgx.Tx, CreateQuestion) (QuestionDetail, error)

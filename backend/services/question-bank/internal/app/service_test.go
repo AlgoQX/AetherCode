@@ -335,6 +335,10 @@ func (s *panicStore) HardDeleteQuestionVersion(context.Context, pgx.Tx, DeleteQu
 func (s *panicStore) GetAssetObjectRef(context.Context, pgx.Tx, string, string) (string, string, string, error) {
 	panic("store method called before validation")
 }
+func (s *panicStore) ExportQuestionVersion(context.Context, pgx.Tx, string, string) (StoredExport, error) {
+	panic("unexpected store call")
+}
+
 func (s *panicStore) Ping(context.Context) error {
 	panic("store method called before validation")
 }

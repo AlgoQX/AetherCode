@@ -478,3 +478,11 @@ func mapCommandError(err error, operation string) error {
 	}
 	return fmt.Errorf("%s: %w", operation, err)
 }
+
+func (repository *Postgres) ExportQuestionVersion(contextValue context.Context, transaction pgx.Tx, eventID, questionVersionID string) (app.StoredExport, error) {
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, `SELECT qbank.export_question_version($1, $2)`, eventID, questionVersionID).Scan(&raw); err != nil {
+		return app.StoredExport{}, mapCommandError(err, "export question version")
+	}
+	return app.DecodeStoredExport(raw)
+}

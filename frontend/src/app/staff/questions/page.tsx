@@ -1,13 +1,14 @@
 import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { EmptyState, LoadError, PageHeader } from "@/components/staff/page-header";
+import { EmptyState, LoadError, PageHeader, Section } from "@/components/staff/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/card";
 import type { Page, QuestionDetail } from "@/lib/api-types";
 import { gateway } from "@/lib/server/gateway";
 import { requireStaff } from "@/lib/server/staff";
 import { cn, languageName } from "@/lib/utils";
+import { ImportQuestionForm } from "./import-form";
 
 export const metadata: Metadata = { title: "Questions" };
 
@@ -77,6 +78,9 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
           ))}
         </ul>
       )}
+      <Section title="Import" description="Add a question from a file a college administrator exported. It arrives as your draft, tests included.">
+        <ImportQuestionForm />
+      </Section>
     </>
   );
 }

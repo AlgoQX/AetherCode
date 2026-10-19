@@ -391,3 +391,23 @@ func TestStaffAuthoringAppliesOnlyToStaffRolesOnTheQuestionBank(t *testing.T) {
 		t.Fatal("only the question-bank route may enable staff authoring")
 	}
 }
+
+// ADR-0032: exporting a question reveals its hidden tests, so of the staff
+// roles only college administrators may; platform administrators still can.
+func TestOnlyCollegeAdministratorsExportQuestions(t *testing.T) {
+	t.Parallel()
+	request := Request{PrincipalID: testPrincipal, Action: "write", ResourceType: "question_exports", ResourceID: testPrincipal}
+	for _, scenario := range []struct {
+		assignment Assignment
+		want       bool
+	}{
+		{Assignment{Role: centralauthz.RoleCollegeAdmin, ScopeKind: "college", TenantID: testTenant, ScopeID: testTenant}, true},
+		{Assignment{Role: centralauthz.RoleSuperAdmin, ScopeKind: "platform"}, true},
+		{Assignment{Role: centralauthz.RoleDepartmentUser, ScopeKind: "department", TenantID: testTenant, ScopeID: testPrincipal}, false},
+		{Assignment{Role: centralauthz.RoleMentor, ScopeKind: "batch", TenantID: testTenant, ScopeID: testPrincipal}, false},
+	} {
+		if got := assignmentApplies(scenario.assignment, request, true, nil, nil, nil); got != scenario.want {
+			t.Errorf("%s exporting a question = %v, want %v", scenario.assignment.Role, got, scenario.want)
+		}
+	}
+}

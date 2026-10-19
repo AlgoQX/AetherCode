@@ -34,6 +34,7 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("POST /v1/questions/{question_id}/versions", handler.createDraftQuestionVersion)
 	mux.HandleFunc("POST /v1/questions/{question_id}/archive", handler.archiveQuestion)
 	mux.HandleFunc("GET /v1/question-versions/{question_version_id}", handler.getQuestionVersion)
+	mux.HandleFunc("GET /v1/question-versions/{question_version_id}/export", handler.exportQuestionVersion)
 	mux.HandleFunc("PUT /v1/question-versions/{question_version_id}/tests", handler.setQuestionVersionTests)
 	mux.HandleFunc("POST /v1/question-versions/{question_version_id}/assets", handler.addQuestionAsset)
 	mux.HandleFunc("PUT /v1/question-versions/{question_version_id}/tags", handler.replaceQuestionVersionTags)
@@ -660,4 +661,27 @@ func (handler *Handler) getAsset(writer http.ResponseWriter, request *http.Reque
 	writer.Header().Set("Content-Length", strconv.Itoa(len(content.Data)))
 	writer.WriteHeader(http.StatusOK)
 	_, _ = writer.Write(content.Data)
+}
+
+// exportQuestionVersion returns a question with all of its tests as a
+// portable file (ADR-0032). Only college and platform administrators obtain
+// the question_exports capability, and each export is recorded.
+func (handler *Handler) exportQuestionVersion(writer http.ResponseWriter, request *http.Request) {
+	questionVersionID, err := httpx.ParseUUIDPathValue(request, "question_version_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "question_exports", questionVersionID, "")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	export, err := handler.service.ExportQuestionVersion(request.Context(), decision.Capability, questionVersionID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(writer, http.StatusOK, export)
 }

@@ -21,6 +21,9 @@ const contentSecurityPolicy = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // Tests and imported questions arrive through server actions; nginx accepts
+  // 2 MB and the gateway 1 MiB of JSON, so a larger body could not get through.
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
     return [
       {

@@ -276,6 +276,29 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+  /v1/question-versions/{question_version_id}/export:
+    get:
+      summary: Export a question with all of its tests (ADR-0032)
+      description: >-
+        Requires write on question_exports, which only college and platform
+        administrators can obtain. Every export is recorded. The response
+        includes hidden tests in plain text.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: question_version_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The question file (format aethercode.question.v1).
+          content:
+            application/json:
+              schema: { type: object }
+        '403': { description: Not an administrator. }
+        '404': { description: No such question version. }
+        '409': { description: The version has no tests yet. }
 components:
   securitySchemes:
     BearerAuth:

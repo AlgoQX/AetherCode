@@ -1,9 +1,10 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm } from "@/components/staff/form";
 import { LoadError, PageHeader, Section } from "@/components/staff/page-header";
 import { Markdown } from "@/components/markdown";
+import { Button } from "@/components/ui/button";
 import { Badge, Panel } from "@/components/ui/card";
 import type { QuestionVersion } from "@/lib/api-types";
 import { gateway } from "@/lib/server/gateway";
@@ -15,7 +16,7 @@ import { TestsEditor } from "./tests-editor";
 export const metadata: Metadata = { title: "Question" };
 
 export default async function QuestionPage({ params }: { params: Promise<{ versionId: string }> }) {
-  await requireStaff();
+  const staff = await requireStaff();
   const { versionId } = await params;
   let version: QuestionVersion;
   try {
@@ -39,7 +40,20 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
       <PageHeader
         title={version.title}
         description={`Version ${version.version_number}, ${version.difficulty}, ${version.time_limit_ms / 1000} s, ${Math.round(version.memory_limit_kib / 1024)} MB, ${version.supported_languages.map(languageName).join(", ")}`}
-        actions={<Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>}
+        actions={
+          <>
+            <Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>
+            {/* Exports carry the hidden tests: administrators only, and each is logged (ADR-0032). */}
+            {staff.canManageAccounts && version.hidden_test_case_count > 0 && (
+              <Button asChild variant="secondary" size="sm">
+                <a href={`/api/question-bank/v1/question-versions/${version.id}/export`} download={`${version.title.replace(/[^A-Za-z0-9]+/g, "-")}.json`}>
+                  <Download />
+                  Export
+                </a>
+              </Button>
+            )}
+          </>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">

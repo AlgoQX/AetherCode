@@ -163,6 +163,11 @@ ok("plaintext tests become encrypted bundles; the response shows counts only")
 status, _, _ = call("GET", f"/question-bank/v1/question-versions/{version_id}/bundle", token=faculty)
 assert status in (404, 405), status
 ok("the hidden-test download endpoint is gone")
+status, _, _ = call("GET", f"/question-bank/v1/question-versions/{version_id}/export", token=faculty)
+assert status == 403, status
+_, exported, _ = call("GET", f"/question-bank/v1/question-versions/{version_id}/export", token=admin, expect=200)
+assert exported["format"] == "aethercode.question.v1" and any(not test["sample"] for test in exported["tests"]), exported
+ok("only administrators export a question, hidden tests included (ADR-0032)")
 call("POST", f"/question-bank/v1/question-versions/{version_id}/publish",
      {"expected_question_version": version["version"]}, token=faculty, expect=200)
 ok("question published")

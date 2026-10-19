@@ -97,3 +97,63 @@ export async function draftNewVersion(_previous: ActionState, form: FormData): P
   }
   redirect(`/staff/questions/${created.question_version.id}`);
 }
+
+const EXPORT_FORMAT = "aethercode.question.v1";
+
+type QuestionFile = {
+  format: string;
+  title: string;
+  prompt_markdown: string;
+  difficulty: string;
+  supported_languages: string[];
+  time_limit_ms: number;
+  memory_limit_kib: number;
+  tests: Test[];
+};
+
+/**
+ * A new draft from an exported question file (ADR-0032). The question bank
+ * validates every field as it would for a hand-written question; the draft is
+ * then checked and published as usual.
+ */
+export async function importQuestion(_previous: ActionState, form: FormData): Promise<ActionState> {
+  await requireStaff();
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an exported question file." };
+  if (file.size > 250 * 1024 * 1024) return { error: "The file is larger than any exported question." };
+  let question: QuestionFile;
+  try {
+    question = JSON.parse(await file.text()) as QuestionFile;
+  } catch {
+    return { error: "The file is not a question export." };
+  }
+  if (question?.format !== EXPORT_FORMAT || !Array.isArray(question.tests)) return { error: "The file is not a question export." };
+  const slug = `${question.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50)}-${crypto.randomUUID().slice(0, 6)}`;
+  let created: QuestionDetail;
+  try {
+    created = await gateway<QuestionDetail>("/question-bank/v1/questions", {
+      method: "POST",
+      body: {
+        slug,
+        title: question.title,
+        prompt_markdown: question.prompt_markdown,
+        difficulty: question.difficulty,
+        supported_languages: question.supported_languages,
+        time_limit_ms: question.time_limit_ms,
+        memory_limit_kib: question.memory_limit_kib,
+        tags: [],
+      },
+    });
+    await gateway<QuestionVersion>(`/question-bank/v1/question-versions/${created.question_version.id}/tests`, {
+      method: "PUT",
+      body: {
+        expected_question_version: created.question_version.version,
+        tests: question.tests.map(({ input, expected_output, sample, weight }) => ({ input, expected_output, sample, weight })),
+      },
+    });
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+  revalidatePath("/staff/questions");
+  redirect(`/staff/questions/${created.question_version.id}`);
+}

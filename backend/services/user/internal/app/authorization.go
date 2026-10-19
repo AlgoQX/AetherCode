@@ -142,7 +142,7 @@ var routes = map[string]route{
 	},
 	"question-bank": {
 		Audience: "aether_qbank", ActionPrefix: "qbank", ResourcePrefix: "qbank", Global: true, StaffAuthoring: true,
-		Resources: resourceSet("questions", "question_versions", "test_case_manifests", "question_assets", "tags", "question_version_tags"),
+		Resources: resourceSet("questions", "question_versions", "test_case_manifests", "question_assets", "tags", "question_version_tags", "question_exports"),
 	},
 	"assessment": {
 		Audience: "aether_assessment", ActionPrefix: "assessment", ResourcePrefix: "assessment",
@@ -366,6 +366,11 @@ func assignmentApplies(
 		return true
 	case "college", "department", "batch":
 		if staffAuthoring && request.TenantID == "" {
+			// Exporting a question reveals its hidden tests, so only college
+			// administrators may (ADR-0032).
+			if request.ResourceType == "question_exports" {
+				return assignment.Role == centralauthz.RoleCollegeAdmin
+			}
 			// The global question bank is authored by every college's staff
 			// (ADR-0020); mentors and students stay excluded.
 			return assignment.Role == centralauthz.RoleCollegeAdmin || assignment.Role == centralauthz.RoleDepartmentUser
