@@ -266,6 +266,10 @@ services:
       QBANK_GRPC_TLS_CERT_FILE: /certs/question-bank.crt
       QBANK_GRPC_TLS_KEY_FILE: /certs/question-bank.key
       QBANK_GRPC_CLIENT_CA_FILE: /certs/ca.crt
+      # Model-solution checks: Question Bank is a Judge client with its own
+      # certificate, and Judge returns it only its own jobs (ADR-0033).
+      QBANK_JUDGE_GRPC_ADDR: judge:8443
+      QBANK_JUDGE_TLS_SERVER_NAME: judge
       QBANK_GRPC_ALLOWED_CLIENT_SUBJECTS: assessment
     build: { context: ../../backend, dockerfile: services/question-bank/Dockerfile }
 
@@ -371,7 +375,7 @@ services:
       JUDGE_TLS_CERT_FILE: /certs/judge.crt
       JUDGE_TLS_KEY_FILE: /certs/judge.key
       JUDGE_CLIENT_CA_FILE: /certs/ca.crt
-      JUDGE_ALLOWED_CLIENT_SUBJECTS: submission
+      JUDGE_ALLOWED_CLIENT_SUBJECTS: submission,question-bank
       # Approved for the campus server with engine-check evidence (decision D4).
       JUDGE_ENGINE_COMPATIBILITY_APPROVED: "true"
       JUDGE_STORAGE_ENDPOINT: minio:9000

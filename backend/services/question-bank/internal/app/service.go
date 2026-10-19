@@ -50,6 +50,8 @@ var (
 // Store is the service-owned PostgreSQL port. Implementations receive an
 // already authorized transaction and must never create an unscoped one.
 type Store interface {
+	StartModelCheck(context.Context, pgx.Tx, string, StartModelCheck, BundleReference) (json.RawMessage, error)
+	ListModelChecks(context.Context, pgx.Tx, string) (json.RawMessage, error)
 	ExportQuestionVersion(context.Context, pgx.Tx, string, string) (StoredExport, error)
 	ClaimIdempotency(context.Context, pgx.Tx, IdempotencyClaim) (json.RawMessage, bool, error)
 	CompleteIdempotency(context.Context, pgx.Tx, IdempotencyClaim, int, json.RawMessage) error
@@ -289,6 +291,8 @@ type Service struct {
 	storage storage.Object
 	kms     kms.KeyManager
 	logger  *slog.Logger
+	// modelChecks sends model-solution checks to Judge; nil when not configured.
+	modelChecks ModelCheckRunner
 }
 
 // NewService creates a new Question Bank service. Storage and KMS are required:

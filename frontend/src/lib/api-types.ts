@@ -330,3 +330,14 @@ export type QuestionSimilarity = {
     b: { attempt_id: string; candidate_id: string; language: string };
   }[];
 };
+
+/** GET /question-bank/v1/question-versions/{id}/model-checks (ADR-0033). */
+export type ModelCheck = {
+  id: string;
+  language: string;
+  lifecycle_state: "queued" | "completed" | "failed";
+  verdict: string | null;
+  units: { unit_number: number; verdict: string; weight: number; time_ms?: number }[];
+  requested_at: string;
+  completed_at: string | null;
+};

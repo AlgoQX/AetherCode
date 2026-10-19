@@ -486,3 +486,21 @@ func (repository *Postgres) ExportQuestionVersion(contextValue context.Context, 
 	}
 	return app.DecodeStoredExport(raw)
 }
+
+func (repository *Postgres) StartModelCheck(contextValue context.Context, transaction pgx.Tx, id string, command app.StartModelCheck, source app.BundleReference) (json.RawMessage, error) {
+	var raw json.RawMessage
+	err := transaction.QueryRow(contextValue, `SELECT qbank.start_model_check($1, $2, $3, $4, $5, $6)`,
+		id, command.QuestionVersionID, command.Language, source.ObjectKey, source.Checksum, source.EncryptionKeyReference).Scan(&raw)
+	if err != nil {
+		return nil, mapCommandError(err, "start model check")
+	}
+	return raw, nil
+}
+
+func (repository *Postgres) ListModelChecks(contextValue context.Context, transaction pgx.Tx, questionVersionID string) (json.RawMessage, error) {
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, `SELECT qbank.list_model_checks($1)`, questionVersionID).Scan(&raw); err != nil {
+		return nil, mapCommandError(err, "list model checks")
+	}
+	return raw, nil
+}

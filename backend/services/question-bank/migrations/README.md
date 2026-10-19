@@ -9,3 +9,9 @@ version is still a draft, for the staff authoring screen.
 `qbank.question_exports`, which only college and platform administrators can
 obtain, records every export, and returns the version's content with the
 storage references of its evaluation and sample bundles. Rollback drops both.
+
+`000016_model_checks` adds model-solution checks (ADR-0033): the
+`model_checks` table, `start_model_check` (an author, with a write context on
+question versions; the language must be allowed and at most three checks per
+version run at once), `list_model_checks` and `finish_model_check` for the
+Judge completion worker. Rollback drops them.

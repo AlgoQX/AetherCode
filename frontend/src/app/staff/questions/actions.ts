@@ -157,3 +157,21 @@ export async function importQuestion(_previous: ActionState, form: FormData): Pr
   revalidatePath("/staff/questions");
   redirect(`/staff/questions/${created.question_version.id}`);
 }
+
+/** Run an author's reference solution on every test of a version (ADR-0033). */
+export async function startModelCheck(_previous: ActionState, form: FormData): Promise<ActionState> {
+  await requireStaff();
+  const versionId = String(form.get("version_id") ?? "");
+  const source = String(form.get("source") ?? "");
+  if (!source.trim()) return { error: "Paste a solution first." };
+  try {
+    await gateway(`/question-bank/v1/question-versions/${versionId}/model-checks`, {
+      method: "POST",
+      body: { language: String(form.get("language") ?? ""), source },
+    });
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+  revalidatePath(`/staff/questions/${versionId}`);
+  return { error: null, message: "Running on every test. Results appear below in a few seconds." };
+}

@@ -168,6 +168,17 @@ assert status == 403, status
 _, exported, _ = call("GET", f"/question-bank/v1/question-versions/{version_id}/export", token=admin, expect=200)
 assert exported["format"] == "aethercode.question.v1" and any(not test["sample"] for test in exported["tests"]), exported
 ok("only administrators export a question, hidden tests included (ADR-0032)")
+checks_path = f"/question-bank/v1/question-versions/{version_id}/model-checks"
+call("POST", checks_path, {"language": "python3", "source": "a, b = map(int, input().split())\nprint(a + b)\n"}, token=faculty, expect=202)
+for _ in range(60):
+    _, checks, _ = call("GET", checks_path, token=faculty, expect=200)
+    if checks and checks[0]["lifecycle_state"] != "queued":
+        break
+    time.sleep(1)
+else:
+    sys.exit(f"FAIL the model-solution check never finished: {checks}")
+assert checks[0]["lifecycle_state"] == "completed" and checks[0]["units"] and all(u["verdict"] == "accepted" for u in checks[0]["units"]), checks[0]
+ok("a model solution runs on every test, hidden ones included, through Judge (ADR-0033)")
 call("POST", f"/question-bank/v1/question-versions/{version_id}/publish",
      {"expected_question_version": version["version"]}, token=faculty, expect=200)
 ok("question published")

@@ -6,11 +6,12 @@ import { LoadError, PageHeader, Section } from "@/components/staff/page-header";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import { Badge, Panel } from "@/components/ui/card";
-import type { QuestionVersion } from "@/lib/api-types";
+import type { ModelCheck, QuestionVersion } from "@/lib/api-types";
 import { gateway } from "@/lib/server/gateway";
 import { requireStaff } from "@/lib/server/staff";
 import { languageName } from "@/lib/utils";
 import { draftNewVersion, publishQuestion } from "../actions";
+import { ModelCheckPanel } from "./model-check";
 import { TestsEditor } from "./tests-editor";
 
 export const metadata: Metadata = { title: "Question" };
@@ -19,8 +20,12 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
   const staff = await requireStaff();
   const { versionId } = await params;
   let version: QuestionVersion;
+  let checks: ModelCheck[];
   try {
-    version = await gateway<QuestionVersion>(`/question-bank/v1/question-versions/${versionId}`);
+    [version, checks] = await Promise.all([
+      gateway<QuestionVersion>(`/question-bank/v1/question-versions/${versionId}`),
+      gateway<ModelCheck[]>(`/question-bank/v1/question-versions/${versionId}/model-checks`).catch(() => []),
+    ]);
   } catch (error) {
     return (
       <>
@@ -96,6 +101,11 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
           )}
         </div>
       </div>
+      {ready && (
+        <Section title="Check a model solution" description="Run a correct solution on every test before students do. A failing test usually means a wrong expected output.">
+          <ModelCheckPanel versionId={version.id} languages={version.supported_languages} checks={checks} />
+        </Section>
+      )}
     </>
   );
 }

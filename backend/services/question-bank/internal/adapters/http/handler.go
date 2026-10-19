@@ -35,6 +35,8 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("POST /v1/questions/{question_id}/archive", handler.archiveQuestion)
 	mux.HandleFunc("GET /v1/question-versions/{question_version_id}", handler.getQuestionVersion)
 	mux.HandleFunc("GET /v1/question-versions/{question_version_id}/export", handler.exportQuestionVersion)
+	mux.HandleFunc("POST /v1/question-versions/{question_version_id}/model-checks", handler.startModelCheck)
+	mux.HandleFunc("GET /v1/question-versions/{question_version_id}/model-checks", handler.listModelChecks)
 	mux.HandleFunc("PUT /v1/question-versions/{question_version_id}/tests", handler.setQuestionVersionTests)
 	mux.HandleFunc("POST /v1/question-versions/{question_version_id}/assets", handler.addQuestionAsset)
 	mux.HandleFunc("PUT /v1/question-versions/{question_version_id}/tags", handler.replaceQuestionVersionTags)
@@ -684,4 +686,57 @@ func (handler *Handler) exportQuestionVersion(writer http.ResponseWriter, reques
 	}
 	writer.Header().Set("Cache-Control", "no-store")
 	httpx.WriteJSON(writer, http.StatusOK, export)
+}
+
+type modelCheckRequest struct {
+	Language string `json:"language"`
+	Source   string `json:"source"`
+}
+
+// startModelCheck runs an author's reference solution on every test of the
+// version, hidden ones included (ADR-0033).
+func (handler *Handler) startModelCheck(writer http.ResponseWriter, request *http.Request) {
+	questionVersionID, err := httpx.ParseUUIDPathValue(request, "question_version_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body modelCheckRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "question_versions", questionVersionID, "")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	id, err := handler.service.StartModelCheck(request.Context(), decision.Capability, app.StartModelCheck{
+		QuestionVersionID: questionVersionID, Language: body.Language, Source: body.Source,
+	})
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	httpx.WriteJSON(writer, http.StatusAccepted, map[string]string{"id": id})
+}
+
+func (handler *Handler) listModelChecks(writer http.ResponseWriter, request *http.Request) {
+	questionVersionID, err := httpx.ParseUUIDPathValue(request, "question_version_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "read", "question_versions", questionVersionID, "")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	checks, err := handler.service.ListModelChecks(request.Context(), decision.Capability, questionVersionID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(writer, http.StatusOK, checks)
 }

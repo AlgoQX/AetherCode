@@ -339,6 +339,14 @@ func (s *panicStore) ExportQuestionVersion(context.Context, pgx.Tx, string, stri
 	panic("unexpected store call")
 }
 
+func (s *panicStore) StartModelCheck(context.Context, pgx.Tx, string, StartModelCheck, BundleReference) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) ListModelChecks(context.Context, pgx.Tx, string) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
 func (s *panicStore) Ping(context.Context) error {
 	panic("store method called before validation")
 }
