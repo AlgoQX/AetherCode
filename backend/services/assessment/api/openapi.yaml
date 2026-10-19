@@ -548,6 +548,11 @@ components:
         title: {type: string, minLength: 1, maxLength: 300}
         instructions_markdown: {type: string, maxLength: 100000}
         time_limit_seconds: {type: integer, minimum: 60, maximum: 43200}
+        draw_count:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 100
+          description: Makes the section a pool; each student gets this many of its items (ADR-0034).
     ExamSection:
       type: object
       required: [id, tenant_id, exam_version_id, position, title, instructions_markdown, created_at]

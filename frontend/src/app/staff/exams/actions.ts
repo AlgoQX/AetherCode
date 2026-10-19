@@ -72,14 +72,15 @@ export async function addQuestion(_previous: ActionState, form: FormData): Promi
   try {
     const version = await gateway<ExamVersion>(base);
     const content = await gateway<ExamVersionContent>(`${base}/content`);
-    let section = content.sections[0];
+    const chosen = String(form.get("section_id") ?? "");
+    let section = content.sections.find((candidate) => candidate.id === chosen) ?? content.sections[0];
     let contentVersion = version.content_version;
     if (!section) {
       const created = await gateway<{ id: string }>(`${base}/sections`, {
         method: "POST",
         body: { expected_content_version: contentVersion, position: 1, title: "Questions", instructions_markdown: "", time_limit_seconds: null },
       });
-      section = { id: created.id, position: 1, title: "Questions", items: [] };
+      section = { id: created.id, position: 1, title: "Questions", draw_count: null, items: [] };
       contentVersion += 1;
     }
     const question = await gateway<QuestionVersion>(`/question-bank/v1/question-versions/${String(form.get("question_version_id"))}`);
@@ -197,7 +198,14 @@ export async function duplicateExam(_previous: ActionState, form: FormData): Pro
     for (const section of [...content.sections].sort((a, b) => a.position - b.position)) {
       const created = await gateway<{ id: string }>(`${copyBase}/sections`, {
         method: "POST",
-        body: { expected_content_version: contentVersion++, position: section.position, title: section.title, instructions_markdown: "", time_limit_seconds: null },
+        body: {
+          expected_content_version: contentVersion++,
+          position: section.position,
+          title: section.title,
+          instructions_markdown: "",
+          time_limit_seconds: null,
+          draw_count: section.draw_count,
+        },
       });
       for (const item of [...section.items].sort((a, b) => a.position - b.position)) {
         await gateway(`${copyBase}/sections/${created.id}/items`, {
@@ -212,4 +220,30 @@ export async function duplicateExam(_previous: ActionState, form: FormData): Pro
   }
   revalidatePath("/staff/exams");
   redirect(`/staff/exams/${examId}`);
+}
+
+/** A pool section: each student gets draw_count of its questions (ADR-0034). */
+export async function addPool(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const { tenantId } = await requireCollege();
+  const base = `/assessment/v1/tenants/${tenantId}/exam-versions/${String(form.get("version_id"))}`;
+  const drawCount = Number(form.get("draw_count"));
+  if (!Number.isInteger(drawCount) || drawCount < 1 || drawCount > 100) return { error: "A pool gives each student 1 to 100 questions." };
+  try {
+    const [version, content] = await Promise.all([gateway<ExamVersion>(base), gateway<ExamVersionContent>(`${base}/content`)]);
+    await gateway(`${base}/sections`, {
+      method: "POST",
+      body: {
+        expected_content_version: version.content_version,
+        position: Math.max(0, ...content.sections.map((section) => section.position)) + 1,
+        title: String(form.get("title") ?? "").trim() || "Pool",
+        instructions_markdown: "",
+        time_limit_seconds: null,
+        draw_count: drawCount,
+      },
+    });
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+  revalidatePath(`/staff/exams/${String(form.get("exam_id"))}`);
+  return { error: null, message: "Pool added. Add its questions below; give them all the same marks." };
 }

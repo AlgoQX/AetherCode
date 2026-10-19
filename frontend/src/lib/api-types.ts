@@ -213,6 +213,8 @@ export type ExamVersionContent = {
     id: string;
     position: number;
     title: string;
+    /** A pool: each student gets this many of the section's questions (ADR-0034). */
+    draw_count: number | null;
     items: { id: string; position: number; question_version_id: string; question_title: string | null; maximum_score: string }[];
   }[];
   assignment_rules: {

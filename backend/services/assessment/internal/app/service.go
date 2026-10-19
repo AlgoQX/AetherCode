@@ -238,6 +238,7 @@ type ExamSection struct {
 	Title                string    `json:"title"`
 	InstructionsMarkdown string    `json:"instructions_markdown"`
 	TimeLimitSeconds     *int      `json:"time_limit_seconds,omitempty"`
+	DrawCount            *int      `json:"draw_count,omitempty"`
 	CreatedAt            time.Time `json:"created_at"`
 }
 
@@ -343,6 +344,7 @@ type AddExamSection struct {
 	Title                  string
 	InstructionsMarkdown   string
 	TimeLimitSeconds       *int
+	DrawCount              *int
 }
 
 type AddExamItem struct {
@@ -547,7 +549,8 @@ func (service *Service) CreateExamVersion(ctx context.Context, capability centra
 func (service *Service) AddExamSection(ctx context.Context, capability centralauthz.Capability, command AddExamSection) (ExamSection, error) {
 	command.ID, command.TenantID, command.ExamVersionID = normalizeID(command.ID), normalizeID(command.TenantID), normalizeID(command.ExamVersionID)
 	command.Title, command.InstructionsMarkdown = strings.TrimSpace(command.Title), strings.TrimSpace(command.InstructionsMarkdown)
-	if !validID(command.ID) || !validID(command.TenantID) || !validID(command.ExamVersionID) || command.ExpectedContentVersion <= 0 || command.Position <= 0 || !validText(command.Title, 300) || len([]rune(command.InstructionsMarkdown)) > 100_000 || (command.TimeLimitSeconds != nil && (*command.TimeLimitSeconds < 60 || *command.TimeLimitSeconds > 43_200)) {
+	if !validID(command.ID) || !validID(command.TenantID) || !validID(command.ExamVersionID) || command.ExpectedContentVersion <= 0 || command.Position <= 0 || !validText(command.Title, 300) || len([]rune(command.InstructionsMarkdown)) > 100_000 || (command.TimeLimitSeconds != nil && (*command.TimeLimitSeconds < 60 || *command.TimeLimitSeconds > 43_200)) ||
+		(command.DrawCount != nil && (*command.DrawCount < 1 || *command.DrawCount > 100)) {
 		return ExamSection{}, invalid("exam section fields are invalid")
 	}
 	return runWrite(service, ctx, capability, command.TenantID, "assessment.exam_section.create", command.IdempotencyKey,
@@ -558,8 +561,9 @@ func (service *Service) AddExamSection(ctx context.Context, capability centralau
 			Title                  string `json:"title"`
 			InstructionsMarkdown   string `json:"instructions_markdown"`
 			TimeLimitSeconds       *int   `json:"time_limit_seconds"`
+			DrawCount              *int   `json:"draw_count,omitempty"`
 		}{command.ExamVersionID, command.ExpectedContentVersion, command.Position, command.Title,
-			command.InstructionsMarkdown, command.TimeLimitSeconds}, httpStatusCreated,
+			command.InstructionsMarkdown, command.TimeLimitSeconds, command.DrawCount}, httpStatusCreated,
 		func(transaction pgx.Tx) (ExamSection, error) {
 			return service.store.AddExamSection(ctx, transaction, command)
 		},

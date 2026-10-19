@@ -360,6 +360,9 @@ type addExamSectionRequest struct {
 	Title                  string `json:"title"`
 	InstructionsMarkdown   string `json:"instructions_markdown"`
 	TimeLimitSeconds       *int   `json:"time_limit_seconds"`
+	// DrawCount makes the section a pool: each student gets this many of its
+	// questions (ADR-0034).
+	DrawCount *int `json:"draw_count"`
 }
 
 func (handler *Handler) addExamSection(writer http.ResponseWriter, request *http.Request) {
@@ -396,7 +399,7 @@ func (handler *Handler) addExamSection(writer http.ResponseWriter, request *http
 	section, err := handler.service.AddExamSection(request.Context(), decision.Capability, app.AddExamSection{
 		WriteCommand: app.WriteCommand{IdempotencyKey: key}, ID: id, TenantID: tenantID, ExamVersionID: versionID, ExpectedContentVersion: body.ExpectedContentVersion,
 		Position: body.Position, Title: body.Title, InstructionsMarkdown: body.InstructionsMarkdown,
-		TimeLimitSeconds: body.TimeLimitSeconds,
+		TimeLimitSeconds: body.TimeLimitSeconds, DrawCount: body.DrawCount,
 	})
 	if err != nil {
 		httpx.WriteError(writer, err)

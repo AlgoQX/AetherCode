@@ -22,7 +22,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ examId
     const content = await gateway<ExamVersionContent>(`/assessment/v1/tenants/${staff.tenantId}/exam-versions/${version.id}/content`);
     const items = content.sections
       .toSorted((a, b) => a.position - b.position)
-      .flatMap((section) => section.items.toSorted((a, b) => a.position - b.position));
+      .flatMap((section) =>
+        section.items.toSorted((a, b) => a.position - b.position).map((item) => ({ ...item, pool: section.draw_count === null ? null : { title: section.title, draw: section.draw_count, of: section.items.length } })),
+      );
     const questions = await Promise.all(items.map((item) => gateway<QuestionVersion>(`/question-bank/v1/question-versions/${item.question_version_id}`)));
     data = { version, items, questions };
   } catch (error) {
@@ -70,6 +72,11 @@ export default async function PreviewPage({ params }: { params: Promise<{ examId
             <span className="rounded-full bg-hover px-2.5 py-0.5">Time limit {question.time_limit_ms / 1000} s</span>
             <span className="rounded-full bg-hover px-2.5 py-0.5">Memory {Math.round(question.memory_limit_kib / 1024)} MB</span>
             <span className="rounded-full bg-hover px-2.5 py-0.5">{question.supported_languages.map(languageName).join(", ")}</span>
+            {items[index]!.pool && (
+              <span className="rounded-full bg-warning-soft px-2.5 py-0.5 text-warning">
+                {items[index]!.pool!.title}: each student gets {items[index]!.pool!.draw} of {items[index]!.pool!.of}
+              </span>
+            )}
           </p>
           <Markdown className="mt-6">{question.prompt_markdown}</Markdown>
           <p className="mt-4 text-[13px] text-ink-subtle">

@@ -11,7 +11,7 @@ import { latestVersion } from "@/lib/server/exams";
 import { GatewayError, gateway } from "@/lib/server/gateway";
 import { requireCollege } from "@/lib/server/staff";
 import { formatDuration, formatScoreText, formatWindow, isoToCollegeTime } from "@/lib/utils";
-import { addQuestion, duplicateExam, publishExam, saveSebPolicy } from "../actions";
+import { addPool, addQuestion, duplicateExam, publishExam, saveSebPolicy } from "../actions";
 import { AssignForm } from "./assign-form";
 
 export const metadata: Metadata = { title: "Exam" };
@@ -54,7 +54,16 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
   const { version, content, questions, batches, departments, placement, seb } = data;
   const draft = version.status === "draft";
   const items = content.sections.flatMap((section) => section.items);
-  const total = items.reduce((sum, item) => sum + Number(item.maximum_score), 0);
+  const sections = content.sections.toSorted((a, b) => a.position - b.position);
+  // What each student is marked out of: a pool counts only the questions it draws.
+  const total = sections.reduce(
+    (sum, section) =>
+      sum +
+      (section.draw_count
+        ? section.draw_count * Number(section.items[0]?.maximum_score ?? 0)
+        : section.items.reduce((sectionSum, item) => sectionSum + Number(item.maximum_score), 0)),
+    0,
+  );
   const targetName = new Map<string, string>([
     ...batches.map((batch) => [batch.id, batch.name] as const),
     ...departments.map((department) => [department.id, departmentLabel(department)] as const),
@@ -101,19 +110,36 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
         }
       />
 
-      <Section title={`Questions, ${formatScoreText(total)} marks in total`}>
-        {items.length === 0 ? (
+      <Section title={`Questions, ${formatScoreText(total)} marks for each student`}>
+        {items.length === 0 && sections.length < 2 ? (
           <EmptyState>No questions yet.</EmptyState>
         ) : (
-          <Table head={["#", "Question", "Marks"]}>
-            {items.map((item) => (
-              <tr key={item.id}>
-                <td className="w-10 px-4 py-2.5 text-ink-muted">{item.position}</td>
-                <td className="px-4 py-2.5 text-ink">{item.question_title ?? "Question"}</td>
-                <td className="px-4 py-2.5 tabular-nums text-ink">{formatScoreText(Number(item.maximum_score))}</td>
-              </tr>
+          <div className="space-y-4">
+            {sections.map((section) => (
+              <div key={section.id}>
+                {sections.length > 1 && (
+                  <p className="mb-2 text-[13px] font-medium text-ink-muted">
+                    {section.title}
+                    {section.draw_count !== null &&
+                      `: pool, each student gets ${section.draw_count} of ${section.items.length} question${section.items.length === 1 ? "" : "s"}`}
+                  </p>
+                )}
+                {section.items.length === 0 ? (
+                  <EmptyState>No questions in this {section.draw_count !== null ? "pool" : "section"} yet.</EmptyState>
+                ) : (
+                  <Table head={["#", "Question", "Marks"]}>
+                    {section.items.map((item) => (
+                      <tr key={item.id}>
+                        <td className="w-10 px-4 py-2.5 text-ink-muted">{item.position}</td>
+                        <td className="px-4 py-2.5 text-ink">{item.question_title ?? "Question"}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-ink">{formatScoreText(Number(item.maximum_score))}</td>
+                      </tr>
+                    ))}
+                  </Table>
+                )}
+              </div>
             ))}
-          </Table>
+          </div>
         )}
         {draft && (
           <div className="mt-4 grid gap-4 md:grid-cols-[1.4fr_1fr]">
@@ -127,6 +153,18 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
                 <ActionForm action={addQuestion} submitLabel="Add question">
                   <input type="hidden" name="exam_id" value={examId} />
                   <input type="hidden" name="version_id" value={version.id} />
+                  {sections.length > 1 && (
+                    <Field label="Into" htmlFor="add-section">
+                      <Select id="add-section" name="section_id">
+                        {sections.map((section) => (
+                          <option key={section.id} value={section.id}>
+                            {section.title}
+                            {section.draw_count !== null ? ` (pool, ${section.draw_count} each)` : ""}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
                   <div className="grid grid-cols-[1fr_7rem] gap-3">
                     <Field label="Published question" htmlFor="add-question">
                       <Select id="add-question" name="question_version_id" required>
@@ -155,6 +193,24 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
               ) : (
                 <p className="text-[13px] text-ink-muted">Add at least one question.</p>
               )}
+            </Panel>
+            <Panel className="p-5 md:col-span-2">
+              <h3 className="mb-2 text-sm font-semibold text-ink">Add a question pool</h3>
+              <p className="mb-4 text-[13px] text-ink-muted">
+                Each student gets a different random set of the pool&apos;s questions, the same set every time they open the exam. Give the pool&apos;s questions the same marks.
+              </p>
+              <ActionForm action={addPool} submitLabel="Add pool">
+                <input type="hidden" name="exam_id" value={examId} />
+                <input type="hidden" name="version_id" value={version.id} />
+                <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
+                  <Field label="Title" htmlFor="pool-title">
+                    <TextInput id="pool-title" name="title" defaultValue="Pool" maxLength={300} required />
+                  </Field>
+                  <Field label="Questions each" htmlFor="pool-draw">
+                    <TextInput id="pool-draw" name="draw_count" type="number" min={1} max={100} defaultValue={1} required />
+                  </Field>
+                </div>
+              </ActionForm>
             </Panel>
           </div>
         )}

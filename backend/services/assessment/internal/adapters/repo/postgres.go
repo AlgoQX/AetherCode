@@ -236,9 +236,9 @@ func (repository *Postgres) CreateExamVersion(ctx context.Context, transaction p
 
 func (repository *Postgres) AddExamSection(ctx context.Context, transaction pgx.Tx, command app.AddExamSection) (app.ExamSection, error) {
 	if _, err := transaction.Exec(ctx, `
-		SELECT assessment.add_exam_section($1, $2, $3, $4, $5, $6, $7, $8)
+		SELECT assessment.add_exam_section($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, command.ID, command.TenantID, command.ExamVersionID, command.ExpectedContentVersion,
-		command.Position, command.Title, command.InstructionsMarkdown, command.TimeLimitSeconds); err != nil {
+		command.Position, command.Title, command.InstructionsMarkdown, command.TimeLimitSeconds, command.DrawCount); err != nil {
 		return app.ExamSection{}, mapWriteError(err, "exam section could not be added")
 	}
 	section, err := selectExamSection(ctx, transaction, command.ID, command.TenantID)
@@ -555,12 +555,12 @@ func selectExamSection(ctx context.Context, transaction pgx.Tx, id, tenantID str
 	var result app.ExamSection
 	err := transaction.QueryRow(ctx, `
 		SELECT id::text, tenant_id::text, exam_version_id::text, position, title,
-		       instructions_markdown, time_limit_seconds, created_at
+		       instructions_markdown, time_limit_seconds, draw_count, created_at
 		FROM assessment.exam_sections
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID).Scan(
 		&result.ID, &result.TenantID, &result.ExamVersionID, &result.Position, &result.Title,
-		&result.InstructionsMarkdown, &result.TimeLimitSeconds, &result.CreatedAt,
+		&result.InstructionsMarkdown, &result.TimeLimitSeconds, &result.DrawCount, &result.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return app.ExamSection{}, apperrors.New(apperrors.CodeNotFound, "exam section was not found")
