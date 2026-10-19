@@ -669,3 +669,16 @@ func (repository *Postgres) GetAttemptReview(contextValue context.Context, trans
 	}
 	return review, nil
 }
+
+func (repository *Postgres) ListExamLatestAnswers(contextValue context.Context, transaction pgx.Tx, command app.ExamVersionCommand) ([]app.StoredLatestAnswer, error) {
+	raw, err := queryJSON(contextValue, transaction, "list exam latest answers",
+		`SELECT submission.list_exam_latest_answers($1, $2)`, command.TenantID, command.ExamVersionID)
+	if err != nil {
+		return nil, err
+	}
+	var answers []app.StoredLatestAnswer
+	if err := json.Unmarshal(raw, &answers); err != nil {
+		return nil, fmt.Errorf("decode exam latest answers: %w", err)
+	}
+	return answers, nil
+}

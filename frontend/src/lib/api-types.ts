@@ -316,3 +316,17 @@ export type AttemptReview = {
   }[];
   events: { occurred_at: string; event_type: string; actor_id: string | null; payload: Record<string, unknown> }[];
 };
+
+/** GET /submission/v1/tenants/{t}/exam-versions/{v}/similarity (ADR-0031). */
+export type QuestionSimilarity = {
+  exam_item_id: string;
+  position: number | null;
+  title: string | null;
+  programs: number;
+  pairs: {
+    score: number;
+    shared: number;
+    a: { attempt_id: string; candidate_id: string; language: string };
+    b: { attempt_id: string; candidate_id: string; language: string };
+  }[];
+};

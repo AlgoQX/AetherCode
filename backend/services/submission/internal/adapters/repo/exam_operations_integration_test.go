@@ -237,4 +237,25 @@ func TestExamOperations(t *testing.T) {
 		})
 		require.ErrorContains(t, err, "does not allow", "a candidate never reads the review, even of their own attempt")
 	})
+
+	t.Run("staff list the latest answers for the similarity report", func(t *testing.T) {
+		var answers []struct {
+			AttemptID       string `json:"attempt_id"`
+			SourceObjectKey string `json:"source_object_key"`
+		}
+		require.NoError(t, staff("submission.read", "submission.judge_receipts", func(transaction pgx.Tx) error {
+			var raw []byte
+			if err := transaction.QueryRow(ctx, `SELECT submission.list_exam_latest_answers($1, $2)`, unitTenantID, versionID).Scan(&raw); err != nil {
+				return err
+			}
+			return json.Unmarshal(raw, &answers)
+		}))
+		require.Len(t, answers, 1, "one question answered, only its latest save")
+		require.Equal(t, fixture.AttemptID, answers[0].AttemptID)
+		err := candidate(func(transaction pgx.Tx) error {
+			_, err := transaction.Exec(ctx, `SELECT submission.list_exam_latest_answers($1, $2)`, unitTenantID, versionID)
+			return err
+		})
+		require.ErrorContains(t, err, "does not allow")
+	})
 }

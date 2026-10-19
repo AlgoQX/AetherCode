@@ -104,3 +104,8 @@ and `get_attempt_result_for_candidate` for the candidate.
 read on `judge_receipts`, an attempt's items with the latest answer's storage
 reference, every evaluation with per-verdict counts, the finalized score and
 the event log. Rollback drops it.
+
+`000030_exam_latest_answers` adds `list_exam_latest_answers` (ADR-0031): for
+staff with read on `judge_receipts`, every attempt's latest saved answer per
+question of one exam version, as storage references for the similarity
+report. Rollback drops it.

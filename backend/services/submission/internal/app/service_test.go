@@ -103,6 +103,9 @@ func (validationStore) GetAttemptResult(context.Context, pgx.Tx, GetAttempt) (js
 func (validationStore) GetAttemptReview(context.Context, pgx.Tx, GetAttempt) (StoredReview, error) {
 	return StoredReview{}, nil
 }
+func (validationStore) ListExamLatestAnswers(context.Context, pgx.Tx, ExamVersionCommand) ([]StoredLatestAnswer, error) {
+	return nil, nil
+}
 func (validationStore) Ping(context.Context) error { return nil }
 
 func TestStartAttemptRejectsInvalidCommandBeforeTransaction(t *testing.T) {

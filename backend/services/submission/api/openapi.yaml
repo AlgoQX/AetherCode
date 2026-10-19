@@ -580,6 +580,25 @@ paths:
               schema: { type: object }
         '403': { $ref: '#/components/responses/Problem403' }
         '404': { $ref: '#/components/responses/Problem404' }
+  /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/similarity:
+    get:
+      summary: Code similarity report for staff (ADR-0031)
+      description: >-
+        Per question, pairs of attempts whose latest code shares most of its
+        unusual structure (score 0.6 to 1, at most 100 pairs). Requires read
+        on judge_receipts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/ExamVersionID'
+      responses:
+        '200':
+          description: The report.
+          content:
+            application/json:
+              schema: { type: array, items: { type: object } }
+        '403': { $ref: '#/components/responses/Problem403' }
 components:
   securitySchemes:
     bearerAuth:

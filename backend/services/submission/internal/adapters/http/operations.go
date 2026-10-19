@@ -23,6 +23,23 @@ func (handler *Handler) registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/live", handler.getAttemptLiveState)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/result", handler.getAttemptResult)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/review", handler.reviewAttempt)
+	mux.HandleFunc("GET /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/similarity", handler.similarityReport)
+}
+
+// similarityReport compares students' latest code per question (ADR-0031).
+func (handler *Handler) similarityReport(writer http.ResponseWriter, request *http.Request) {
+	command, capability, err := handler.authorizeExamVersion(request, "read", "judge_receipts")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	report, err := handler.service.SimilarityReport(request.Context(), capability, command)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(writer, http.StatusOK, report)
 }
 
 // reviewAttempt is the staff view of one attempt (ADR-0029). It authorizes

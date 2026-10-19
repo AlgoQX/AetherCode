@@ -1,7 +1,8 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ScanSearch } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState, LoadError, PageHeader, Table } from "@/components/staff/page-header";
+import { Button } from "@/components/ui/button";
 import { Badge, Panel } from "@/components/ui/card";
 import type { ExamResult, ExamVersionContent } from "@/lib/api-types";
 import { latestVersion } from "@/lib/server/exams";
@@ -61,13 +62,21 @@ export default async function ResultsPage({ params }: { params: Promise<{ examId
         description="Each question counts its best submission. Results appear once an attempt is graded."
         actions={
           rows.length > 0 && (
-            <ExportButton
+            <>
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/staff/exams/${examId}/similarity`}>
+                  <ScanSearch />
+                  Similarity
+                </Link>
+              </Button>
+              <ExportButton
               filename={`${version.title.replace(/[^A-Za-z0-9]+/g, "-")}-results.csv`}
               rows={[
                 ["roll_number", "score", "maximum_score", "status", "submitted_at"],
                 ...rows.map((row) => [row.roll, row.score, row.maximum_score, row.lifecycle_state, row.submitted_at ?? ""]),
               ]}
-            />
+              />
+            </>
           )
         }
       />
