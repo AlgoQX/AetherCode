@@ -100,6 +100,9 @@ func (validationStore) GetAttemptLiveState(context.Context, pgx.Tx, GetAttempt) 
 func (validationStore) GetAttemptResult(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error) {
 	return nil, nil
 }
+func (validationStore) GetAttemptReview(context.Context, pgx.Tx, GetAttempt) (StoredReview, error) {
+	return StoredReview{}, nil
+}
 func (validationStore) Ping(context.Context) error { return nil }
 
 func TestStartAttemptRejectsInvalidCommandBeforeTransaction(t *testing.T) {

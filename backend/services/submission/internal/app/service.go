@@ -92,6 +92,7 @@ type Store interface {
 	PostAnnouncement(context.Context, pgx.Tx, PostAnnouncement) (json.RawMessage, error)
 	GetAttemptLiveState(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error)
 	GetAttemptResult(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error)
+	GetAttemptReview(context.Context, pgx.Tx, GetAttempt) (StoredReview, error)
 	Ping(context.Context) error
 }
 

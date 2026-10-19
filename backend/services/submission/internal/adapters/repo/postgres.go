@@ -656,3 +656,16 @@ func queryJSON(contextValue context.Context, transaction pgx.Tx, operation, quer
 	}
 	return raw, nil
 }
+
+func (repository *Postgres) GetAttemptReview(contextValue context.Context, transaction pgx.Tx, command app.GetAttempt) (app.StoredReview, error) {
+	raw, err := queryJSON(contextValue, transaction, "get attempt review",
+		`SELECT submission.get_attempt_review($1, $2)`, command.TenantID, command.AttemptID)
+	if err != nil {
+		return app.StoredReview{}, err
+	}
+	var review app.StoredReview
+	if err := json.Unmarshal(raw, &review); err != nil {
+		return app.StoredReview{}, fmt.Errorf("decode attempt review: %w", err)
+	}
+	return review, nil
+}

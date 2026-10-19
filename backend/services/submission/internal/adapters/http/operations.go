@@ -22,6 +22,34 @@ func (handler *Handler) registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/announcements", handler.postAnnouncement)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/live", handler.getAttemptLiveState)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/result", handler.getAttemptResult)
+	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/review", handler.reviewAttempt)
+}
+
+// reviewAttempt is the staff view of one attempt (ADR-0029). It authorizes
+// judge_receipts, the reviewer resource, for the attempt.
+func (handler *Handler) reviewAttempt(writer http.ResponseWriter, request *http.Request) {
+	tenantID, err := httpx.ParseUUIDPathValue(request, "tenant_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	attemptID, err := httpx.ParseUUIDPathValue(request, "attempt_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "read", "judge_receipts", attemptID, tenantID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	review, err := handler.service.ReviewAttempt(request.Context(), decision.Capability, app.GetAttempt{TenantID: tenantID, AttemptID: attemptID})
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(writer, http.StatusOK, review)
 }
 
 // authorizeExamVersion authorizes action on resource for the route's exam version.

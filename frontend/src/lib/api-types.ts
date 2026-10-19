@@ -279,3 +279,40 @@ export type AttemptResult =
       maximum_score: number;
       items: { exam_item_id: string; position: number | null; title: string | null; score: number; maximum_score: number }[];
     };
+
+/** GET /submission/v1/tenants/{t}/attempts/{a}/review: the staff view of one attempt (ADR-0029). */
+export type AttemptReview = {
+  attempt: {
+    id: string;
+    exam_id: string;
+    exam_version_id: string;
+    candidate_id: string;
+    attempt_number: number;
+    lifecycle_state: string;
+    started_at: string | null;
+    submission_deadline: string;
+    submitted_at: string | null;
+    completed_at: string | null;
+    title: string | null;
+  };
+  score: { score: string; maximum_score: string } | null;
+  items: {
+    exam_item_id: string;
+    position: number | null;
+    title: string | null;
+    maximum_score: string;
+    best_score: string | null;
+    latest_answer: { language: string; revision_number: number; saved_at: string; source: string } | null;
+    evaluations: {
+      origin: "final" | "item_submit";
+      lifecycle_state: string;
+      language: string;
+      revision_number: number;
+      queued_at: string;
+      verdict: string | null;
+      score: string | null;
+      verdict_counts: Record<string, number>;
+    }[];
+  }[];
+  events: { occurred_at: string; event_type: string; actor_id: string | null; payload: Record<string, unknown> }[];
+};

@@ -560,6 +560,26 @@ paths:
               schema: { type: object }
         '403': { $ref: '#/components/responses/Problem403' }
         '404': { $ref: '#/components/responses/Problem404' }
+  /v1/tenants/{tenant_id}/attempts/{attempt_id}/review:
+    get:
+      summary: Staff review of one attempt (ADR-0029)
+      description: >-
+        Each question's latest code, its evaluations with per-verdict counts,
+        the finalized score and the attempt's event log. Requires read on
+        judge_receipts, which no candidate can hold.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+      responses:
+        '200':
+          description: The review.
+          content:
+            application/json:
+              schema: { type: object }
+        '403': { $ref: '#/components/responses/Problem403' }
+        '404': { $ref: '#/components/responses/Problem404' }
 components:
   securitySchemes:
     bearerAuth:

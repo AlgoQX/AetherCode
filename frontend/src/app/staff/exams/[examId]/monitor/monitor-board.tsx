@@ -1,6 +1,7 @@
 "use client";
 
 import { Megaphone, Timer } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { EmptyState, Section, Table } from "@/components/staff/page-header";
@@ -144,7 +145,15 @@ export function MonitorBoard({
           <Table head={["Roll number", "Status", "Time left", "Answered", "Score", ""]}>
             {rows.map(({ candidate, roll, status }) => (
               <tr key={candidate.candidate_id}>
-                <td className="px-4 py-2.5 font-mono text-[13px] text-ink">{roll}</td>
+                <td className="px-4 py-2.5 font-mono text-[13px] text-ink">
+                  {candidate.attempt_id ? (
+                    <Link href={`/staff/exams/${examId}/attempts/${candidate.attempt_id}`} className="text-brand hover:underline">
+                      {roll}
+                    </Link>
+                  ) : (
+                    roll
+                  )}
+                </td>
                 <td className="px-4 py-2.5">
                   <Badge tone={status.tone}>{status.label}</Badge>
                 </td>

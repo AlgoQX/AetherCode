@@ -154,3 +154,57 @@ export async function saveSebPolicy(_previous: ActionState, form: FormData): Pro
   revalidatePath(`/staff/exams/${String(form.get("exam_id"))}`);
   return { error: null, message: enabled ? "Locked to Safe Exam Browser." : "Safe Exam Browser lock turned off." };
 }
+
+/**
+ * A new draft exam with the source's instructions, duration, policy and
+ * questions with their marks, under a new title and window. Assignments and
+ * Safe Exam Browser settings are not copied: the copy is for another sitting.
+ */
+export async function duplicateExam(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const { tenantId } = await requireCollege();
+  const base = `/assessment/v1/tenants/${tenantId}`;
+  let examId: string;
+  try {
+    const sourceId = String(form.get("version_id"));
+    const [source, content] = await Promise.all([
+      gateway<ExamVersion>(`${base}/exam-versions/${sourceId}`),
+      gateway<ExamVersionContent>(`${base}/exam-versions/${sourceId}/content`),
+    ]);
+    const opensAt = collegeTimeToISO(String(form.get("opens_at")));
+    const closesAt = collegeTimeToISO(String(form.get("closes_at")));
+    if (Date.parse(closesAt) <= Date.parse(opensAt)) return { error: "The window must close after it opens." };
+    const exam = await gateway<Exam>(`${base}/exams`, { method: "POST", body: {} });
+    const copy = await gateway<ExamVersion>(`${base}/exams/${exam.id}/versions`, {
+      method: "POST",
+      body: {
+        expected_exam_version: exam.version,
+        title: String(form.get("title") ?? "").trim(),
+        instructions_markdown: source.instructions_markdown,
+        opens_at: opensAt,
+        closes_at: closesAt,
+        duration_seconds: source.duration_seconds,
+        proctor_policy_version_id: source.proctor_policy_version_id,
+      },
+    });
+    const copyBase = `${base}/exam-versions/${copy.id}`;
+    // Every content change bumps the version's content_version.
+    let contentVersion = copy.content_version;
+    for (const section of [...content.sections].sort((a, b) => a.position - b.position)) {
+      const created = await gateway<{ id: string }>(`${copyBase}/sections`, {
+        method: "POST",
+        body: { expected_content_version: contentVersion++, position: section.position, title: section.title, instructions_markdown: "", time_limit_seconds: null },
+      });
+      for (const item of [...section.items].sort((a, b) => a.position - b.position)) {
+        await gateway(`${copyBase}/sections/${created.id}/items`, {
+          method: "POST",
+          body: { expected_content_version: contentVersion++, position: item.position, question_version_id: item.question_version_id, maximum_score: item.maximum_score },
+        });
+      }
+    }
+    examId = exam.id;
+  } catch (error) {
+    return { error: error instanceof Error && !("status" in error) ? error.message : actionError(error) };
+  }
+  revalidatePath("/staff/exams");
+  redirect(`/staff/exams/${examId}`);
+}

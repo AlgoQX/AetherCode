@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, BarChart3, Download } from "lucide-react";
+import { Activity, ArrowLeft, BarChart3, Download, Eye } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, Field, Select, TextArea, TextInput } from "@/components/staff/form";
@@ -11,7 +11,7 @@ import { latestVersion } from "@/lib/server/exams";
 import { GatewayError, gateway } from "@/lib/server/gateway";
 import { requireCollege } from "@/lib/server/staff";
 import { formatDuration, formatScoreText, formatWindow, isoToCollegeTime } from "@/lib/utils";
-import { addQuestion, publishExam, saveSebPolicy } from "../actions";
+import { addQuestion, duplicateExam, publishExam, saveSebPolicy } from "../actions";
 import { AssignForm } from "./assign-form";
 
 export const metadata: Metadata = { title: "Exam" };
@@ -73,6 +73,14 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
         actions={
           <>
             <Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>
+            {items.length > 0 && (
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/staff/exams/${examId}/preview`}>
+                  <Eye />
+                  Preview
+                </Link>
+              </Button>
+            )}
             {!draft && (
               <Button asChild variant="secondary" size="sm">
                 <Link href={`/staff/exams/${examId}/monitor`}>
@@ -186,6 +194,25 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
           </Panel>
         </Section>
       )}
+
+      <Section title="Duplicate" description="A new draft with these questions, marks, instructions and duration, for another sitting. Assignments and lab lock are not copied.">
+        <Panel className="p-5">
+          <ActionForm action={duplicateExam} submitLabel="Duplicate exam">
+            <input type="hidden" name="version_id" value={version.id} />
+            <Field label="Title" htmlFor="copy-title">
+              <TextInput id="copy-title" name="title" defaultValue={`${version.title} (copy)`} maxLength={300} required />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Opens" htmlFor="copy-opens">
+                <TextInput id="copy-opens" name="opens_at" type="datetime-local" defaultValue={isoToCollegeTime(version.opens_at)} required />
+              </Field>
+              <Field label="Closes" htmlFor="copy-closes">
+                <TextInput id="copy-closes" name="closes_at" type="datetime-local" defaultValue={isoToCollegeTime(version.closes_at)} required />
+              </Field>
+            </div>
+          </ActionForm>
+        </Panel>
+      </Section>
 
       <Section title="Safe Exam Browser" description="Lock the exam to the lab's Safe Exam Browser. Students then start it from the launch file.">
         <Panel className="p-5">

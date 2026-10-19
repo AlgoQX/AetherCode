@@ -99,3 +99,8 @@ only through owner-bound functions; `get_exam_monitor`,
 `post_exam_announcement` for staff; and `get_attempt_live_state_for_candidate`
 and `get_attempt_result_for_candidate` for the candidate.
 `attempt_item_scores` factors out the best score per item. Rollback drops them.
+
+`000029_attempt_review` adds `get_attempt_review` (ADR-0029): for staff with
+read on `judge_receipts`, an attempt's items with the latest answer's storage
+reference, every evaluation with per-verdict counts, the finalized score and
+the event log. Rollback drops it.

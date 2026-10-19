@@ -196,4 +196,45 @@ func TestExamOperations(t *testing.T) {
 		}))
 		require.Equal(t, map[string]any{"released": false}, result(), "hiding results again hides the score")
 	})
+
+	t.Run("staff review the attempt; a candidate cannot", func(t *testing.T) {
+		var review struct {
+			Attempt struct {
+				CandidateID string `json:"candidate_id"`
+			} `json:"attempt"`
+			Items []struct {
+				LatestAnswer *struct {
+					SourceObjectKey string `json:"source_object_key"`
+				} `json:"latest_answer"`
+				Evaluations []struct {
+					Origin string `json:"origin"`
+				} `json:"evaluations"`
+			} `json:"items"`
+			Events []struct {
+				EventType string `json:"event_type"`
+			} `json:"events"`
+		}
+		require.NoError(t, staff("submission.read", "submission.judge_receipts", func(transaction pgx.Tx) error {
+			var raw []byte
+			if err := transaction.QueryRow(ctx, `SELECT submission.get_attempt_review($1, $2)`, unitTenantID, fixture.AttemptID).Scan(&raw); err != nil {
+				return err
+			}
+			return json.Unmarshal(raw, &review)
+		}))
+		require.Equal(t, fixture.CandidateID, review.Attempt.CandidateID)
+		require.Len(t, review.Items, 1)
+		require.NotNil(t, review.Items[0].LatestAnswer)
+		require.Len(t, review.Items[0].Evaluations, 1)
+		types := []string{}
+		for _, event := range review.Events {
+			types = append(types, event.EventType)
+		}
+		require.Contains(t, types, "submission.attempt.deadline_extended.v1")
+
+		err := candidate(func(transaction pgx.Tx) error {
+			_, err := transaction.Exec(ctx, `SELECT submission.get_attempt_review($1, $2)`, unitTenantID, fixture.AttemptID)
+			return err
+		})
+		require.ErrorContains(t, err, "does not allow", "a candidate never reads the review, even of their own attempt")
+	})
 }
