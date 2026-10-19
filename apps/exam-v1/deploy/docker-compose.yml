@@ -1,4 +1,4 @@
-# Single-server deployment: app + grading worker + Postgres + Judge0.
+# Single-server deployment: app + grading worker + Postgres.
 # Usage: see ../README.md "Deploying on the campus server".
 name: aethercode-exam
 
@@ -10,7 +10,24 @@ services:
       POSTGRES_USER: exam
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
       POSTGRES_DB: exam
-    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=512MB"]
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "effective_cache_size=1536MB"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -23,12 +40,34 @@ services:
     command: ["pnpm", "migrate"]
     environment: &app-env
       DATABASE_URL: postgres://exam:${DB_PASSWORD}@db:5432/exam
-      ENGINE: ${ENGINE:-judge0}
-      ENGINE_URL: ${ENGINE_URL:-http://judge0-server:2358}
-      ENGINE_AUTH_TOKEN: ${JUDGE0_AUTH_TOKEN:-}
+      ENGINE: ${ENGINE:-aethercode}
+      ENGINE_URL: ${ENGINE_URL:-http://172.17.0.1:5100}
+      ENGINE_AUTH_TOKEN: ${ENGINE_AUTH_TOKEN:-}
+      ENGINE_BATCH: ${ENGINE_BATCH:-}
+      # Judge0 tuning (all optional — see .env.example for defaults)
+      ENGINE_JUDGE0_POLL_INTERVAL_MS: ${ENGINE_JUDGE0_POLL_INTERVAL_MS:-}
+      ENGINE_JUDGE0_POLL_DEADLINE_MS: ${ENGINE_JUDGE0_POLL_DEADLINE_MS:-}
+      ENGINE_JUDGE0_BATCH_CPU_BUDGET_SECONDS: ${ENGINE_JUDGE0_BATCH_CPU_BUDGET_SECONDS:-}
+      ENGINE_JUDGE0_BATCH_WALL_BUDGET_SECONDS: ${ENGINE_JUDGE0_BATCH_WALL_BUDGET_SECONDS:-}
+      ENGINE_JUDGE0_MAX_CPU_SECONDS: ${ENGINE_JUDGE0_MAX_CPU_SECONDS:-}
+      ENGINE_JUDGE0_MAX_MEMORY_KB: ${ENGINE_JUDGE0_MAX_MEMORY_KB:-}
+      # AetherCode engine tuning (all optional — see .env.example for defaults)
+      ENGINE_AC_STREAM_TIMEOUT_MS: ${ENGINE_AC_STREAM_TIMEOUT_MS:-}
+      ENGINE_AC_MAX_TIME_LIMIT_MS: ${ENGINE_AC_MAX_TIME_LIMIT_MS:-}
+      ENGINE_AC_MIN_TIME_LIMIT_MS: ${ENGINE_AC_MIN_TIME_LIMIT_MS:-}
+      ENGINE_AC_MAX_MEMORY_LIMIT_KB: ${ENGINE_AC_MAX_MEMORY_LIMIT_KB:-}
+      ENGINE_AC_MIN_MEMORY_LIMIT_KB: ${ENGINE_AC_MIN_MEMORY_LIMIT_KB:-}
+      ENGINE_AC_RETRY_INITIAL_DELAY_MS: ${ENGINE_AC_RETRY_INITIAL_DELAY_MS:-}
+      ENGINE_AC_RETRY_MAX_DELAY_MS: ${ENGINE_AC_RETRY_MAX_DELAY_MS:-}
+      # Worker tuning (all optional — see .env.example for defaults)
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-16}
+      WORKER_MAX_IN_FLIGHT: ${WORKER_MAX_IN_FLIGHT:-}
+      WORKER_MAX_TRIES: ${WORKER_MAX_TRIES:-}
+      WORKER_IDLE_POLL_MS: ${WORKER_IDLE_POLL_MS:-}
+      WORKER_OUTPUT_LIMIT_BYTES: ${WORKER_OUTPUT_LIMIT_BYTES:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      SEB_CONFIG_PASSWORD: ${SEB_CONFIG_PASSWORD:-}
+      # Public origin students use; SEB links and SEB checks are built from it.
+      APP_URL: ${APP_URL:-}
     depends_on:
       db:
         condition: service_healthy
@@ -77,53 +116,5 @@ services:
       db:
         condition: service_healthy
 
-  judge0-server:
-    image: judge0/judge0:1.13.1
-    restart: always
-    privileged: true
-    volumes:
-      - ./judge0.conf:/judge0.conf:ro
-    depends_on: [judge0-db, judge0-redis]
-
-  judge0-workers:
-    image: judge0/judge0:1.13.1
-    restart: always
-    privileged: true
-    command: ["./scripts/workers"]
-    volumes:
-      - ./judge0.conf:/judge0.conf:ro
-    depends_on: [judge0-db, judge0-redis]
-
-  judge0-db:
-    image: postgres:16-alpine
-    restart: always
-    env_file: judge0.conf
-    volumes:
-      - judge0-db-data:/var/lib/postgresql/data
-
-  judge0-redis:
-    image: redis:7-alpine
-    restart: always
-    command: ["sh", "-c", 'redis-server --appendonly no --requirepass "$$REDIS_PASSWORD"']
-    env_file: judge0.conf
-
-  # Alternative engine for cgroup v2 hosts: `docker compose --profile piston up -d`,
-  # then install runtimes once (see README) and set ENGINE=piston, ENGINE_URL=http://piston:2000.
-  piston:
-    image: ghcr.io/engineer-man/piston
-    profiles: ["piston"]
-    restart: always
-    privileged: true
-    environment:
-      # Piston's defaults (3 s run cap, 1 KB output) are too small for exams.
-      PISTON_RUN_TIMEOUT: "40000"
-      PISTON_COMPILE_TIMEOUT: "20000"
-      PISTON_OUTPUT_MAX_SIZE: "1048576"
-      PISTON_MAX_CONCURRENT_JOBS: "64"
-    volumes:
-      - piston-packages:/piston/packages
-
 volumes:
   db-data:
-  judge0-db-data:
-  piston-packages:
