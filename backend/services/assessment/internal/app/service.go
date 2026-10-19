@@ -101,6 +101,12 @@ type ResolvedQuestionVersion struct {
 	TimeLimitMS        int
 	MemoryLimitKiB     int
 	SupportedLanguages []string
+	// Kind is "coding" or "mcq" (ADR-0035); an mcq version has options and an
+	// answer key instead of bundles and limits.
+	Kind           string
+	Choices        []string
+	CorrectChoices []int
+	MultipleChoice bool
 }
 
 // Page is one keyset page. NextCursor is empty on the final page.
@@ -251,7 +257,8 @@ type ExamItem struct {
 	QuestionID               string    `json:"question_id"`
 	QuestionVersionID        string    `json:"question_version_id"`
 	MaximumScore             string    `json:"maximum_score"`
-	EvaluationBundleChecksum string    `json:"evaluation_bundle_checksum"`
+	EvaluationBundleChecksum string    `json:"evaluation_bundle_checksum,omitempty"`
+	Kind                     string    `json:"kind"`
 	CreatedAt                time.Time `json:"created_at"`
 }
 
@@ -583,9 +590,9 @@ func (service *Service) AddExamItem(ctx context.Context, capability centralauthz
 	if err != nil {
 		return ExamItem{}, err
 	}
-	if resolved.QuestionVersionID != command.QuestionVersionID || !validID(resolved.QuestionID) ||
-		!validBundle(resolved.EvaluationBundle) || !validBundle(resolved.SampleBundle) || !validExecution(resolved) ||
-		!validStatement(resolved) {
+	if resolved.QuestionVersionID != command.QuestionVersionID || !validID(resolved.QuestionID) || !validStatement(resolved) ||
+		(resolved.Kind == "mcq" && !validChoices(resolved)) ||
+		(resolved.Kind != "mcq" && (!validBundle(resolved.EvaluationBundle) || !validBundle(resolved.SampleBundle) || !validExecution(resolved))) {
 		return ExamItem{}, fmt.Errorf("question bank returned an invalid question version")
 	}
 	command.Resolved = resolved
@@ -1164,3 +1171,17 @@ func (service *Service) ListProctorPolicyVersions(ctx context.Context, capabilit
 }
 
 func invalid(message string) error { return apperrors.New(apperrors.CodeInvalidArgument, message) }
+
+// validChoices mirrors exam_items' bounds on a multiple-choice item (ADR-0035).
+func validChoices(resolved ResolvedQuestionVersion) bool {
+	if len(resolved.Choices) < 2 || len(resolved.Choices) > 10 || len(resolved.CorrectChoices) < 1 ||
+		(!resolved.MultipleChoice && len(resolved.CorrectChoices) != 1) {
+		return false
+	}
+	for _, index := range resolved.CorrectChoices {
+		if index < 0 || index >= len(resolved.Choices) {
+			return false
+		}
+	}
+	return true
+}

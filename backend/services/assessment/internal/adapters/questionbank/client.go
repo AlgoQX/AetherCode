@@ -123,6 +123,10 @@ func (client *Client) ResolvePublishedQuestionVersion(ctx context.Context, quest
 		TimeLimitMS:        int(response.GetTimeLimitMs()),
 		MemoryLimitKiB:     int(response.GetMemoryLimitKib()),
 		SupportedLanguages: response.GetSupportedLanguages(),
+		Kind:               kindOf(response.GetKind()),
+		Choices:            response.GetChoices(),
+		CorrectChoices:     correctChoices(response.GetCorrectChoices()),
+		MultipleChoice:     response.GetMultipleChoice(),
 	}, nil
 }
 
@@ -163,4 +167,20 @@ func env(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// kindOf treats a Question Bank that predates ADR-0035 as coding-only.
+func kindOf(kind string) string {
+	if kind == "" {
+		return "coding"
+	}
+	return kind
+}
+
+func correctChoices(indexes []uint32) []int {
+	out := make([]int, 0, len(indexes))
+	for _, index := range indexes {
+		out = append(out, int(index))
+	}
+	return out
 }

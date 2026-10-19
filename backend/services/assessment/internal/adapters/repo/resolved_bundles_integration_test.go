@@ -113,6 +113,10 @@ func TestResolvedBundlesAreSnapshotted(t *testing.T) {
 		"supported_languages":             []any{"c", "python3"},
 		"title":                           "Sum two numbers",
 		"prompt_markdown":                 "Print a + b.",
+		"kind":                            "coding",
+		"choices":                         nil,
+		"correct_choices":                 nil,
+		"multiple_choice":                 false,
 	}
 
 	// Direct materialization goes through enqueue_candidate_assignment_snapshot.

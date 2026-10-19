@@ -257,6 +257,21 @@ func (repository *Postgres) AddExamSection(ctx context.Context, transaction pgx.
 }
 
 func (repository *Postgres) AddExamItem(ctx context.Context, transaction pgx.Tx, command app.AddExamItem) (app.ExamItem, error) {
+	if command.Resolved.Kind == "mcq" {
+		choices, err := json.Marshal(command.Resolved.Choices)
+		if err != nil {
+			return app.ExamItem{}, err
+		}
+		if _, err := transaction.Exec(ctx, `
+			SELECT assessment.add_exam_mcq_item($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10, $11, $12::jsonb, $13, $14)
+		`, command.ID, command.TenantID, command.ExamVersionID, command.SectionID, command.ExpectedContentVersion,
+			command.Position, command.Resolved.QuestionID, command.QuestionVersionID, command.MaximumScore,
+			command.Resolved.Title, command.Resolved.PromptMarkdown, string(choices), command.Resolved.CorrectChoices,
+			command.Resolved.MultipleChoice); err != nil {
+			return app.ExamItem{}, mapWriteError(err, "exam item could not be added")
+		}
+		return repository.itemAdded(ctx, transaction, command)
+	}
 	if _, err := transaction.Exec(ctx, `
 		SELECT assessment.add_exam_item($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	`, command.ID, command.TenantID, command.ExamVersionID, command.SectionID, command.ExpectedContentVersion,
@@ -267,6 +282,11 @@ func (repository *Postgres) AddExamItem(ctx context.Context, transaction pgx.Tx,
 		command.Resolved.Title, command.Resolved.PromptMarkdown); err != nil {
 		return app.ExamItem{}, mapWriteError(err, "exam item could not be added")
 	}
+	return repository.itemAdded(ctx, transaction, command)
+}
+
+// itemAdded reads back a new exam item and records its creation event.
+func (repository *Postgres) itemAdded(ctx context.Context, transaction pgx.Tx, command app.AddExamItem) (app.ExamItem, error) {
 	item, err := selectExamItem(ctx, transaction, command.ID, command.TenantID)
 	if err != nil {
 		return app.ExamItem{}, err
@@ -576,13 +596,13 @@ func selectExamItem(ctx context.Context, transaction pgx.Tx, id, tenantID string
 	err := transaction.QueryRow(ctx, `
 		SELECT id::text, tenant_id::text, exam_version_id::text, section_id::text, position,
 		       question_id::text, question_version_id::text, maximum_score::text,
-		       evaluation_bundle_checksum, created_at
+		       COALESCE(evaluation_bundle_checksum, ''), kind, created_at
 		FROM assessment.exam_items
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID).Scan(
 		&result.ID, &result.TenantID, &result.ExamVersionID, &result.SectionID, &result.Position,
 		&result.QuestionID, &result.QuestionVersionID, &result.MaximumScore,
-		&result.EvaluationBundleChecksum, &result.CreatedAt,
+		&result.EvaluationBundleChecksum, &result.Kind, &result.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return app.ExamItem{}, apperrors.New(apperrors.CodeNotFound, "exam item was not found")
