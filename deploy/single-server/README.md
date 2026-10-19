@@ -2,8 +2,9 @@
 
 The whole platform on one machine with Docker Compose (decision D2): the 11
 services, PostgreSQL 18, NATS JetStream, MinIO, the judge control plane (its
-own PostgreSQL and RabbitMQ) and the code-execution engine: Piston by default
-(ADR-0018), or Judge0 on cgroup v1 hosts. Only the gateway is published,
+own PostgreSQL and RabbitMQ). Code runs on the AetherCode Execution Engine,
+which runs on the host as a systemd service, outside Compose (ADR-0028); Judge0
+is an alternative on cgroup v1 hosts. Only the gateway is published,
 on loopback (`127.0.0.1:GATEWAY_PORT`, default 8080); the host nginx serves it
 publicly over TLS (see "Public address").
 
@@ -15,9 +16,15 @@ every production safety check applies.
 ## Host requirements
 
 - Docker Engine with Compose v2, 8+ cores, 16 GB RAM, about 20 GB of free disk.
-- Piston works on cgroup v1 and v2. **Judge0 needs cgroup v1** (`stat -fc %T
-  /sys/fs/cgroup` prints `cgroup2fs` on v2): only use it on such a host, with
-  `JUDGE_ENGINE=judge0` in `.env` and `--profile judge0`.
+- The AetherCode Execution Engine installed on the host
+  (github.com/stjosephsplacements/AetherCode-Execution-Engine) and listening on
+  the docker0 address only, `AC_GATEWAY_ADDR=172.17.0.1:5100`: it has no
+  authentication, so it must not listen on a public interface. Check it with
+  `curl http://172.17.0.1:5100/api/v1/health`. Judge reaches it at
+  `host.docker.internal:5100` (`AETHERCODE_ENGINE_URL`).
+- **Judge0 needs cgroup v1** (`stat -fc %T /sys/fs/cgroup` prints `cgroup2fs`
+  on v2): only use it on such a host, with `JUDGE_ENGINE=judge0` in `.env` and
+  `--profile judge0`.
 
 ## First install
 
@@ -41,7 +48,6 @@ One-shot jobs run before the services start:
 | `migrate` | Migrates the nine platform databases with their migrator roles, then installs each database's authorization capability key (`migrate-all.sh`, `provision-keys.sh`). |
 | `judge-migrate` | Migrates the judge database. |
 | `buckets` | Creates the `aethercode` MinIO bucket. |
-| `piston-packages` | Installs the newest Piston runtimes for C/C++ (gcc), Java and Python (`piston-packages.js`). |
 
 ## First administrator
 

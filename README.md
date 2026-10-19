@@ -19,7 +19,7 @@ The repository holds two independent codebases:
 | | Platform | Exam app v1 |
 |---|---|---|
 | **Path** | `backend/`, `deploy/`, `frontend/` | [`apps/exam-v1/`](apps/exam-v1/README.md) |
-| **What it is** | Multi-tenant Go microservices with PostgreSQL row-level security, signed authorization capabilities, an isolated judge (Piston or Judge0) and Safe Exam Browser enforcement. Runs on one server with Docker Compose or on Kubernetes. | One Next.js app + PostgreSQL + a grading worker over Judge0 or Piston, deployed with Docker Compose behind nginx on one server. |
+| **What it is** | Multi-tenant Go microservices with PostgreSQL row-level security, signed authorization capabilities, an isolated judge (the AetherCode Execution Engine, or Judge0) and Safe Exam Browser enforcement. Runs on one server with Docker Compose or on Kubernetes. | One Next.js app + PostgreSQL + a grading worker over Judge0 or Piston, deployed with Docker Compose behind nginx on one server. |
 | **Status** | **The only backend going forward** (ADR-0017). Accounts, authoring, take-and-grade and SEB lockdown work end to end through the gateway; results, live operations and the web frontend are next. See the [roadmap](docs/roadmap.md). | **Frozen fallback**, feature-complete for a supervised lab exam; used for exams until the platform reaches parity, then removed. |
 | **Start here** | [PLAN.md](PLAN.md), [docs/roadmap.md](docs/roadmap.md), [deploy/single-server](deploy/single-server/README.md) | [apps/exam-v1/README.md](apps/exam-v1/README.md) |
 
@@ -143,8 +143,8 @@ Implemented on the judge side:
 Submission dispatches each queued evaluation request and code run to Judge
 over mTLS; Judge decrypts the bundle and source, runs one execution unit per
 test case on the engine, and Submission scores the attempt by test weight
-(ADR-0014, ADR-0015, ADR-0021). The single-server stack uses Piston by default
-(ADR-0018).
+(ADR-0014, ADR-0015, ADR-0021). The single-server stack runs code on the AetherCode
+Execution Engine (ADR-0028).
 
 The Judge0 engine chart is disabled by default. It must remain blocked until
 the gVisor, no-network, non-privileged compatibility gate has approved an

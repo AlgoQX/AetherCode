@@ -135,7 +135,7 @@ services:
     entrypoint: ["/bin/bash", "/judge-languages.sh"]
     environment:
       PGPASSWORD: ${JUDGE_DB_PASSWORD}
-      JUDGE_ENGINE: ${JUDGE_ENGINE:-piston}
+      JUDGE_ENGINE: ${JUDGE_ENGINE:-aethercode}
       JUDGE_WORKER_CONCURRENCY: "32"
     volumes:
       - ./judge-languages.sh:/judge-languages.sh:ro
@@ -382,42 +382,22 @@ services:
       JUDGE_KMS_LOCAL_KEY: ${PLATFORM_KMS_LOCAL_KEY}
       JUDGE_DISPATCHER_ENABLED: "true"
       JUDGE_WORKER_CONCURRENCY: "32"
-      # piston (default) runs on cgroup v2 hosts; judge0 needs cgroup v1 and
-      # `--profile judge0`.
-      JUDGE_ENGINE: ${JUDGE_ENGINE:-piston}
-      PISTON_BASE_URL: http://piston:2000
+      # aethercode (default) is the college's execution engine on the host;
+      # judge0 needs cgroup v1 and `--profile judge0`.
+      JUDGE_ENGINE: ${JUDGE_ENGINE:-aethercode}
+      # The AetherCode Execution Engine runs on the host (systemd, go-judge),
+      # listening on the docker0 address only (ADR-0028).
+      AETHERCODE_ENGINE_URL: ${AETHERCODE_ENGINE_URL:-http://host.docker.internal:5100}
       JUDGE0_BASE_URL: http://judge0-server:2358
       JUDGE0_AUTH_TOKEN: ${JUDGE0_AUTH_TOKEN:?run setup.sh first}
     build: { context: ../../backend, dockerfile: services/judge/Dockerfile }
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       judge-languages:
         condition: service_completed_successfully
       judge-rabbitmq:
         condition: service_healthy
-      piston-packages:
-        condition: service_completed_successfully
-
-  piston:
-    image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
-    restart: always
-    # Piston's sandbox (isolate on cgroup v2) needs a privileged container.
-    privileged: true
-    environment:
-      # Piston's defaults (3 s run cap, 1 KB output) are too small for exams;
-      # the judge passes each unit's own limits below these caps.
-      PISTON_RUN_TIMEOUT: "40000"
-      PISTON_COMPILE_TIMEOUT: "20000"
-      PISTON_OUTPUT_MAX_SIZE: "1048576"
-      PISTON_MAX_CONCURRENT_JOBS: "128"
-    volumes:
-      - piston-packages:/piston/packages
-
-  piston-packages:
-    image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
-    entrypoint: ["node", "/piston-packages.js"]
-    volumes:
-      - ./piston-packages.js:/piston-packages.js:ro
-    depends_on: [piston]
 
   # Judge0 runs only with `--profile judge0`: its isolate sandbox needs
   # cgroup v1 on the host and ~7 GB of disk (see README).
@@ -508,7 +488,6 @@ networks:
         - subnet: 10.231.240.0/29
 
 volumes:
-  piston-packages:
   judge0-db-data:
   judge-db-data:
   judge-rabbitmq-data:
