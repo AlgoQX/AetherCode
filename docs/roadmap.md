@@ -28,7 +28,7 @@ the platform (≈10–12 focused days). Until M8, exams run on `apps/exam-v1`.
 | M3 | Take and grade | A student starts, saves code, runs samples and submits. Dispatch → judge (decrypt) → Judge0 → score. Time-up submits latest answers. | done (2026-10-05, ADR-0021; `smoke.py`) |
 | M4 | SEB | Per-request SEB key validation that works with a real SEB browser, plus `.seb` launch-file download (ADR-0022). | Done 2026-10-05 |
 | M5 | Frontend | `frontend/` ports the exam-app screens (login, admin, authoring, exam screen, results) onto the gateway. | done in code (2026-10-19, ADR-0023 to 0026); needs `smoke.py` on the campus stack |
-| M6 | Results and operations | Faculty results/CSV, result release, live monitor, extend time, announcements, backups and system status. | in progress: results and CSV done; release, monitor, extend time, announcements remain |
+| M6 | Results and operations | Faculty results/CSV, result release, live monitor, extend time, announcements, backups and system status. | in progress: results, CSV, release, monitor, extra time and announcements done in code (ADR-0027); system status remains |
 | M7 | Remaining parity | Pools, MCQ, network allow-list, preview, similarity, audit log, model-solution check, import/export, duplicate, login slips. | — |
 | M8 | Cut-over | The ported e2e spec, `engine-check` and a 1000-student load test pass on the stack. `apps/exam-v1` is deleted. | — |
 

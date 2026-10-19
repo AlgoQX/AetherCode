@@ -1,4 +1,4 @@
-import { ArrowLeft, BarChart3, Download } from "lucide-react";
+import { Activity, ArrowLeft, BarChart3, Download } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, Field, Select, TextArea, TextInput } from "@/components/staff/form";
@@ -73,6 +73,14 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
         actions={
           <>
             <Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>
+            {!draft && (
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/staff/exams/${examId}/monitor`}>
+                  <Activity />
+                  Live monitor
+                </Link>
+              </Button>
+            )}
             {!draft && (
               <Button asChild variant="secondary" size="sm">
                 <Link href={`/staff/exams/${examId}/results`}>

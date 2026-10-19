@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Clock3, CloudOff, LoaderCircle, Maximize2, Minimize2, Play, RotateCcw, ShieldCheck, Upload } from "lucide-react";
+import { Check, ChevronDown, Clock3, CloudOff, LoaderCircle, Maximize2, Megaphone, Minimize2, Play, RotateCcw, ShieldCheck, Upload, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import type { Attempt, CodeRun, ItemSubmission, Paper } from "@/lib/api-types";
 import { APIError, api } from "@/lib/client/api";
 import { formatCountdown, useNow } from "@/lib/client/use-now";
-import { cn, languageName } from "@/lib/utils";
+import { cn, formatTime, languageName } from "@/lib/utils";
 import { useEditorSettings } from "./editor-settings";
 import { EditorSettingsMenu } from "./editor-settings-menu";
 import { EndTestDialog } from "./end-test-dialog";
@@ -20,6 +20,7 @@ import { type QuestionStatus, QuestionRail, formatScore } from "./question-rail"
 import { RunConsole, type RunState, runSummary } from "./run-console";
 import { SubmissionsPanel } from "./submissions-panel";
 import { type SaveState, useAnswers } from "./use-answers";
+import { useLiveState } from "./use-live-state";
 import { bestScore, isJudging, useSubmissions } from "./use-submissions";
 
 const CodeEditor = dynamic(() => import("./code-editor").then((module) => module.CodeEditor), {
@@ -111,8 +112,11 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
   const [ending, setEnding] = useState(false);
   const finished = useRef(false);
   const warned = useRef(new Set<number>());
+  const live = useLiveState(attemptPath, attempt.submission_deadline);
   const now = useNow();
-  const remaining = now === null ? null : Date.parse(attempt.submission_deadline) - now;
+  const remaining = now === null ? null : Date.parse(live.deadline) - now;
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const latestNote = live.announcements[0];
 
   const index = items.findIndex((candidate) => candidate.exam_item_id === currentId);
   const item = items[index]!;
@@ -259,6 +263,19 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
         </span>
         <EndTestDialog items={items} statuses={statuses} ending={ending} onEnd={endTest} />
       </header>
+
+      {latestNote && latestNote.id !== dismissed && (
+        <div role="status" className="flex items-start gap-3 border-b bg-brand-soft px-4 py-2 text-sm text-brand-soft-ink">
+          <Megaphone className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
+          <p className="min-w-0 flex-1 whitespace-pre-wrap">
+            <span className="font-medium">Announcement, {formatTime(latestNote.created_at)}: </span>
+            {latestNote.body}
+          </p>
+          <button type="button" onClick={() => setDismissed(latestNote.id)} aria-label="Dismiss announcement" className="shrink-0 rounded p-0.5 hover:bg-brand/10">
+            <X className="size-4" strokeWidth={1.75} />
+          </button>
+        </div>
+      )}
 
       {readOnly && (
         <p role="alert" className="bg-warning-soft px-4 py-2 text-center text-sm text-warning">

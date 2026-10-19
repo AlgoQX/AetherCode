@@ -606,3 +606,53 @@ func (repository *Postgres) ListCodeRuns(contextValue context.Context, transacti
 	}
 	return runs, nil
 }
+
+func (repository *Postgres) GetExamMonitor(contextValue context.Context, transaction pgx.Tx, command app.ExamVersionCommand) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "get exam monitor",
+		`SELECT submission.get_exam_monitor($1, $2)`, command.TenantID, command.ExamVersionID)
+}
+
+func (repository *Postgres) ReleaseResults(contextValue context.Context, transaction pgx.Tx, command app.ReleaseResults) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "release results",
+		`SELECT jsonb_build_object('results_released_at', submission.set_exam_results_release($1, $2, $3))`,
+		command.TenantID, command.ExamVersionID, command.Released)
+}
+
+func (repository *Postgres) ExtendDeadlines(contextValue context.Context, transaction pgx.Tx, command app.ExtendDeadlines) (int, error) {
+	var attemptID *string
+	if command.AttemptID != "" {
+		attemptID = &command.AttemptID
+	}
+	var extended int
+	err := transaction.QueryRow(contextValue, `
+		SELECT submission.extend_attempt_deadlines($1, $2, $3, $4)
+	`, command.TenantID, command.ExamVersionID, attemptID, command.Minutes*60).Scan(&extended)
+	if err != nil {
+		return 0, mapDatabaseError(err, "extend attempt deadlines")
+	}
+	return extended, nil
+}
+
+func (repository *Postgres) PostAnnouncement(contextValue context.Context, transaction pgx.Tx, command app.PostAnnouncement) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "post announcement",
+		`SELECT submission.post_exam_announcement($1, $2, $3, $4)`,
+		command.ID, command.TenantID, command.ExamVersionID, command.Body)
+}
+
+func (repository *Postgres) GetAttemptLiveState(contextValue context.Context, transaction pgx.Tx, command app.GetAttempt) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "get attempt live state",
+		`SELECT submission.get_attempt_live_state_for_candidate($1, $2)`, command.TenantID, command.AttemptID)
+}
+
+func (repository *Postgres) GetAttemptResult(contextValue context.Context, transaction pgx.Tx, command app.GetAttempt) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "get attempt result",
+		`SELECT submission.get_attempt_result_for_candidate($1, $2)`, command.TenantID, command.AttemptID)
+}
+
+func queryJSON(contextValue context.Context, transaction pgx.Tx, operation, query string, arguments ...any) (json.RawMessage, error) {
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, query, arguments...).Scan(&raw); err != nil {
+		return nil, mapDatabaseError(err, operation)
+	}
+	return raw, nil
+}

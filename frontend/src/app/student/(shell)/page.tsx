@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge, Panel } from "@/components/ui/card";
-import type { CandidateAssignment } from "@/lib/api-types";
+import type { Attempt, CandidateAssignment, Page } from "@/lib/api-types";
 import { groupByPhase, listAssignments } from "@/lib/server/assignments";
+import { gateway } from "@/lib/server/gateway";
 import { requireViewer } from "@/lib/server/session";
 import { cn, dateTile, formatDateTime, formatDuration, formatWindow } from "@/lib/utils";
 
@@ -12,8 +13,17 @@ export const metadata: Metadata = { title: "My exams" };
 
 export default async function StudentDashboard() {
   const viewer = await requireViewer();
-  const assignments = viewer.tenantId ? await listAssignments(viewer.tenantId) : [];
+  const [assignments, attempts] = viewer.tenantId
+    ? await Promise.all([
+        listAssignments(viewer.tenantId),
+        // Results links are a convenience: the dashboard still loads without them.
+        gateway<Page<Attempt>>(`/submission/v1/tenants/${viewer.tenantId}/attempts?limit=100`).then((page) => page.items, () => []),
+      ])
+    : [[], []];
   const { live, upcoming, past } = groupByPhase(assignments);
+  // The newest attempt of each assignment; staff extra time can keep one open past the window.
+  const attemptOf = new Map<string, Attempt>();
+  for (const attempt of [...attempts].sort((a, b) => a.attempt_number - b.attempt_number)) attemptOf.set(attempt.candidate_assignment_id, attempt);
   const firstName = viewer.displayName.split(" ")[0];
 
   return (
@@ -40,7 +50,7 @@ export default async function StudentDashboard() {
       {upcoming.length > 0 && (
         <ExamList title="Upcoming" assignments={upcoming} />
       )}
-      {past.length > 0 && <ExamList title="Past exams" assignments={past} muted />}
+      {past.length > 0 && <ExamList title="Past exams" assignments={past} attemptOf={attemptOf} muted />}
 
       {assignments.length === 0 && (
         <div className="mt-12 rounded-[var(--radius-surface)] border border-dashed border-line-strong px-6 py-16 text-center">
@@ -80,7 +90,17 @@ function LiveExam({ assignment }: { assignment: CandidateAssignment }) {
   );
 }
 
-function ExamList({ title, assignments, muted = false }: { title: string; assignments: CandidateAssignment[]; muted?: boolean }) {
+function ExamList({
+  title,
+  assignments,
+  attemptOf,
+  muted = false,
+}: {
+  title: string;
+  assignments: CandidateAssignment[];
+  attemptOf?: Map<string, Attempt>;
+  muted?: boolean;
+}) {
   return (
     <section className="mt-12">
       <h2 className="mb-3 text-sm font-medium text-ink-muted">{title}</h2>
@@ -115,14 +135,22 @@ function ExamList({ title, assignments, muted = false }: { title: string; assign
               )}
             </div>
           );
+          const attempt = attemptOf?.get(assignment.id);
+          const href = !muted
+            ? `/student/exams/${assignment.id}`
+            : attempt?.lifecycle_state === "active"
+              ? `/student/attempts/${attempt.id}`
+              : attempt?.submitted_at
+                ? `/student/results/${attempt.id}`
+                : null;
           return (
             <li key={assignment.id}>
-              {muted ? (
-                row
-              ) : (
-                <Link href={`/student/exams/${assignment.id}`} className="group block transition-colors hover:bg-hover">
+              {href ? (
+                <Link href={href} className="group block transition-colors hover:bg-hover">
                   {row}
                 </Link>
+              ) : (
+                row
               )}
             </li>
           );

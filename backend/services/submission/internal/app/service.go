@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -85,6 +86,12 @@ type Store interface {
 	ListItemSubmissions(context.Context, pgx.Tx, SubmitItem) ([]ItemSubmission, error)
 	GetCodeRun(context.Context, pgx.Tx, GetCodeRun) (CodeRun, error)
 	ListCodeRuns(context.Context, pgx.Tx, ListCodeRuns) ([]CodeRun, error)
+	GetExamMonitor(context.Context, pgx.Tx, ExamVersionCommand) (json.RawMessage, error)
+	ReleaseResults(context.Context, pgx.Tx, ReleaseResults) (json.RawMessage, error)
+	ExtendDeadlines(context.Context, pgx.Tx, ExtendDeadlines) (int, error)
+	PostAnnouncement(context.Context, pgx.Tx, PostAnnouncement) (json.RawMessage, error)
+	GetAttemptLiveState(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error)
+	GetAttemptResult(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error)
 	Ping(context.Context) error
 }
 

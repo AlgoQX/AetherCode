@@ -4,14 +4,15 @@ import { Check, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { Attempt } from "@/lib/api-types";
+import type { Attempt, AttemptResult } from "@/lib/api-types";
 import { api } from "@/lib/client/api";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatScoreText } from "@/lib/utils";
 
-// Marks stay hidden until faculty release results (roadmap M6); this page
-// confirms the submission and follows grading.
+// Confirms the submission and follows grading. Marks stay hidden until
+// faculty release results (ADR-0027), then show per question.
 export function AttemptStatus({ tenantId, attemptId }: { tenantId: string; attemptId: string }) {
   const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,6 +24,8 @@ export function AttemptStatus({ tenantId, attemptId }: { tenantId: string; attem
         setAttempt(latest);
         if (latest.lifecycle_state === "active" || latest.lifecycle_state === "submitted" || latest.lifecycle_state === "grading") {
           setTimeout(poll, 3000);
+        } else if (latest.lifecycle_state === "graded") {
+          setResult(await api<AttemptResult>(`/submission/v1/tenants/${tenantId}/attempts/${attemptId}/result`));
         }
       } catch (caught) {
         if (!stopped) setError(caught instanceof Error ? caught.message : "Could not load your attempt.");
@@ -36,6 +39,7 @@ export function AttemptStatus({ tenantId, attemptId }: { tenantId: string; attem
 
   const pending = !attempt || attempt.lifecycle_state === "active";
   const graded = attempt?.lifecycle_state === "graded";
+  if (result?.released) return <ReleasedResult result={result} />;
 
   return (
     <div className="mx-auto max-w-md animate-enter pt-6 text-center">
@@ -58,6 +62,35 @@ export function AttemptStatus({ tenantId, attemptId }: { tenantId: string; attem
       <Button asChild variant="secondary" className="mt-9">
         <Link href="/student">Back to my exams</Link>
       </Button>
+    </div>
+  );
+}
+
+function ReleasedResult({ result }: { result: Extract<AttemptResult, { released: true }> }) {
+  return (
+    <div className="mx-auto max-w-lg animate-enter pt-6">
+      <p className="text-center text-sm text-ink-muted">Your score</p>
+      <p className="display mt-2 text-center text-[3rem] tabular-nums text-ink">
+        {formatScoreText(Number(result.score))}
+        <span className="text-[1.75rem] text-ink-muted"> / {formatScoreText(Number(result.maximum_score))}</span>
+      </p>
+      <ul className="mt-9 overflow-hidden rounded-[var(--radius-surface)] border border-line bg-surface">
+        {result.items.map((item, index) => (
+          <li key={item.exam_item_id} className={index > 0 ? "flex items-center gap-4 border-t border-line px-5 py-3" : "flex items-center gap-4 px-5 py-3"}>
+            <span className="w-6 shrink-0 text-sm text-ink-muted">{item.position ?? index + 1}</span>
+            <span className="min-w-0 flex-1 truncate text-[15px] text-ink">{item.title ?? "Question"}</span>
+            <span className="shrink-0 font-mono text-sm tabular-nums text-ink">
+              {formatScoreText(Number(item.score))} / {formatScoreText(Number(item.maximum_score))}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-center text-[13px] text-ink-subtle">Each question counts your best submission. Released {formatDateTime(result.released_at)}.</p>
+      <div className="mt-9 text-center">
+        <Button asChild variant="secondary">
+          <Link href="/student">Back to my exams</Link>
+        </Button>
+      </div>
     </div>
   );
 }

@@ -82,6 +82,24 @@ func (validationStore) GetCodeRun(context.Context, pgx.Tx, GetCodeRun) (CodeRun,
 func (validationStore) ListCodeRuns(context.Context, pgx.Tx, ListCodeRuns) ([]CodeRun, error) {
 	return nil, nil
 }
+func (validationStore) GetExamMonitor(context.Context, pgx.Tx, ExamVersionCommand) (json.RawMessage, error) {
+	return nil, nil
+}
+func (validationStore) ReleaseResults(context.Context, pgx.Tx, ReleaseResults) (json.RawMessage, error) {
+	return nil, nil
+}
+func (validationStore) ExtendDeadlines(context.Context, pgx.Tx, ExtendDeadlines) (int, error) {
+	return 0, nil
+}
+func (validationStore) PostAnnouncement(context.Context, pgx.Tx, PostAnnouncement) (json.RawMessage, error) {
+	return nil, nil
+}
+func (validationStore) GetAttemptLiveState(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error) {
+	return nil, nil
+}
+func (validationStore) GetAttemptResult(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error) {
+	return nil, nil
+}
 func (validationStore) Ping(context.Context) error { return nil }
 
 func TestStartAttemptRejectsInvalidCommandBeforeTransaction(t *testing.T) {

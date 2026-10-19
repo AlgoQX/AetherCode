@@ -91,3 +91,11 @@ runs only for a `grading` attempt and scores each item's best evaluation
 `expire_overdue_attempts` skip revisions already evaluated and grade at once
 when nothing new is queued. `claim_code_runs` prefers a run's own bundle.
 Rollback restores the 000022 to 000026 functions and drops custom runs.
+
+`000028_exam_operations` adds exam-day operations (ADR-0027): the
+`exam_operations` (result release) and `exam_announcements` tables, reachable
+only through owner-bound functions; `get_exam_monitor`,
+`set_exam_results_release`, `extend_attempt_deadlines` and
+`post_exam_announcement` for staff; and `get_attempt_live_state_for_candidate`
+and `get_attempt_result_for_candidate` for the candidate.
+`attempt_item_scores` factors out the best score per item. Rollback drops them.

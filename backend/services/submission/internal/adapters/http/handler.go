@@ -58,6 +58,7 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/attempts/{attempt_id}/items/{exam_item_id}/submissions", handler.submitItem)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/items/{exam_item_id}/submissions", handler.listItemSubmissions)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/runs/{run_id}", handler.getCodeRun)
+	handler.registerOperations(mux)
 	return mux, nil
 }
 

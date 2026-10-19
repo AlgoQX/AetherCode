@@ -327,6 +327,40 @@ assert (results["items"][0]["passed_units"], results["items"][0]["total_units"])
 ok("time-up submitted the saved code and it was graded: 3 of 4 tests passed")
 print("ALL M3 CHECKS PASSED")
 
+# --- M6: exam-day operations (ADR-0027) -----------------------------------
+operations = f"/submission/v1/tenants/{tenant}/exam-versions/{exam_version['id']}"
+status, _, _ = call("GET", f"{operations}/monitor", token=student)
+assert status == 403, status
+status, _, _ = call("POST", f"{operations}/announcements", {"body": "spoof"}, token=student)
+assert status == 403, status
+ok("a student can reach neither the live monitor nor announcements")
+_, monitor, _ = call("GET", f"{operations}/monitor", token=faculty, expect=200)
+row = [c for c in monitor["candidates"] if c["attempt_id"] == attempt["id"]]
+assert row and row[0]["lifecycle_state"] == "graded" and row[0]["score"] is not None, monitor
+ok("the live monitor lists the student's graded attempt with its score")
+_, hidden, _ = call("GET", f"{attempts}/{attempt['id']}/result", token=student, expect=200)
+assert hidden == {"released": False}, hidden
+call("PUT", f"{operations}/results-release", {"released": True}, token=faculty, expect=200)
+_, released, _ = call("GET", f"{attempts}/{attempt['id']}/result", token=student, expect=200)
+assert released["released"] and float(released["score"]) == float(row[0]["score"]) and len(released["items"]) == 1, released
+ok("the score stays hidden until faculty release results, then shows per question")
+
+opens, ops_version, ops_item, ops_assignment = publish_exam("Operations smoke test", 3600)
+time.sleep(max(0, opens + 2 - time.time()))
+_, running, _ = call("POST", attempts, {"candidate_assignment_id": ops_assignment["id"]}, token=student, expect=201)
+ops = f"/submission/v1/tenants/{tenant}/exam-versions/{ops_version['id']}"
+_, extended, _ = call("POST", f"{ops}/extensions", {"minutes": 10}, token=faculty, expect=200)
+assert extended == {"extended_attempts": 1}, extended
+call("POST", f"{ops}/announcements", {"body": "Question 1 is fine as written."}, token=faculty, expect=201)
+_, live, _ = call("GET", f"{attempts}/{running['id']}/live", token=student, expect=200)
+moved = (time.mktime(time.strptime(live["submission_deadline"][:19], "%Y-%m-%dT%H:%M:%S"))
+         - time.mktime(time.strptime(running["submission_deadline"][:19], "%Y-%m-%dT%H:%M:%S")))
+assert moved == 600 and [n["body"] for n in live["announcements"]] == ["Question 1 is fine as written."], live
+call("PUT", f"{attempts}/{running['id']}/answers/{ops_item['id']}",
+     {"language": "python3", "source": source, "expected_attempt_version": running["version"]}, token=student, expect=201)
+ok("extra time moves the open attempt's deadline, announcements reach it, and saving still works")
+print("ALL M6 CHECKS PASSED")
+
 # --- M4: Safe Exam Browser ------------------------------------------------
 def seb_headers(path, key):
     """What Safe Exam Browser sends: sha256(absolute URL + Browser Exam Key)."""

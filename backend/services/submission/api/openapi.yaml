@@ -408,6 +408,158 @@ paths:
         '400': { $ref: '#/components/responses/Problem400' }
         '403': { $ref: '#/components/responses/Problem403' }
         '404': { $ref: '#/components/responses/Problem404' }
+  /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/monitor:
+    get:
+      summary: Live monitor of an exam version, for staff (ADR-0027)
+      description: >-
+        One row per active assignment with the newest attempt, answered items
+        and the finalized or best-so-far score, plus the release state and
+        announcements. Requires read on score_summaries.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/ExamVersionID'
+      responses:
+        '200':
+          description: The monitor.
+          content:
+            application/json:
+              schema: { type: object }
+        '403': { $ref: '#/components/responses/Problem403' }
+  /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/results-release:
+    put:
+      summary: Show or hide an exam version's results to its candidates (ADR-0027)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/ExamVersionID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [released]
+              properties:
+                released: { type: boolean }
+      responses:
+        '200':
+          description: The release time, null when hidden.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results_released_at: { type: [string, 'null'], format: date-time }
+        '403': { $ref: '#/components/responses/Problem403' }
+  /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/extensions:
+    post:
+      summary: Add time to one in-progress attempt, or to all of them (ADR-0027)
+      description: >-
+        Without attempt_id, every attempt of the version still in progress
+        gets the time. Ended attempts are never reopened; naming one is a 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/ExamVersionID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [minutes]
+              properties:
+                minutes: { type: integer, minimum: 1, maximum: 240 }
+                attempt_id: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          description: How many attempts got the time.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  extended_attempts: { type: integer }
+        '400': { $ref: '#/components/responses/Problem400' }
+        '403': { $ref: '#/components/responses/Problem403' }
+        '409': { $ref: '#/components/responses/Problem409' }
+  /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/announcements:
+    post:
+      summary: Show a message to every candidate of the exam version (ADR-0027)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/ExamVersionID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '201':
+          description: The announcement.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Announcement' }
+        '400': { $ref: '#/components/responses/Problem400' }
+        '403': { $ref: '#/components/responses/Problem403' }
+  /v1/tenants/{tenant_id}/attempts/{attempt_id}/live:
+    get:
+      summary: The caller's current deadline and the exam's announcements (ADR-0027)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+      responses:
+        '200':
+          description: The live state.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lifecycle_state: { type: string }
+                  submission_deadline: { type: string, format: date-time }
+                  announcements:
+                    type: array
+                    items: { $ref: '#/components/schemas/Announcement' }
+        '403': { $ref: '#/components/responses/Problem403' }
+        '404': { $ref: '#/components/responses/Problem404' }
+  /v1/tenants/{tenant_id}/attempts/{attempt_id}/result:
+    get:
+      summary: The caller's score, once staff release results (ADR-0027)
+      description: >-
+        {"released": false} until results are released and the attempt is
+        graded; then the total and each question's best score.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+      responses:
+        '200':
+          description: The result.
+          content:
+            application/json:
+              schema: { type: object }
+        '403': { $ref: '#/components/responses/Problem403' }
+        '404': { $ref: '#/components/responses/Problem404' }
 components:
   securitySchemes:
     bearerAuth:
@@ -427,6 +579,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/UUID'
+    ExamVersionID:
+      name: exam_version_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
     ExamItemID:
       name: exam_item_id
       in: path
@@ -442,6 +600,12 @@ components:
         minLength: 1
         maxLength: 255
   schemas:
+    Announcement:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
     UUID:
       type: string
       format: uuid

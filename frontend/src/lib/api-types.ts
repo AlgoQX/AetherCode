@@ -56,6 +56,7 @@ export type Attempt = {
   exam_id: string;
   exam_version_id: string;
   candidate_assignment_id: string;
+  attempt_number: number;
   lifecycle_state: AttemptState;
   submission_deadline: string;
   started_at: string | null;
@@ -241,3 +242,40 @@ export type ExamResult = {
   submitted_at: string | null;
   graded_at: string | null;
 };
+
+/** A message staff post to everyone sitting an exam (ADR-0027). */
+export type Announcement = { id: string; body: string; created_at: string };
+
+/** One assigned candidate on the live monitor; attempt fields are null until they start. */
+export type MonitorCandidate = {
+  candidate_id: string;
+  attempt_id: string | null;
+  lifecycle_state: string | null;
+  started_at: string | null;
+  submission_deadline: string | null;
+  submitted_at: string | null;
+  items_answered: number;
+  score: number | null;
+  maximum_score: number | null;
+};
+
+export type ExamMonitor = {
+  exam_version_id: string;
+  results_released_at: string | null;
+  announcements: Announcement[];
+  candidates: MonitorCandidate[];
+};
+
+/** What an open exam screen polls: staff may extend the deadline or post a message. */
+export type AttemptLiveState = { lifecycle_state: string; submission_deadline: string; announcements: Announcement[] };
+
+/** A candidate's score, present only after staff release results. */
+export type AttemptResult =
+  | { released: false }
+  | {
+      released: true;
+      released_at: string;
+      score: number;
+      maximum_score: number;
+      items: { exam_item_id: string; position: number | null; title: string | null; score: number; maximum_score: number }[];
+    };
