@@ -174,6 +174,7 @@ reads User's (ADR-0026).
 git pull && docker compose build
 docker compose up -d migrate submission   # reads Assessment's new fields
 docker compose up -d assessment           # reads User's new fields
+docker compose up -d seb                  # accepts Gateway's client_ip (ADR-0030)
 docker compose up -d                      # everything else, User included
 ```
 

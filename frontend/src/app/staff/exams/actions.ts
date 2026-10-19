@@ -140,19 +140,24 @@ export async function saveSebPolicy(_previous: ActionState, form: FormData): Pro
     .split(/[\s,]+/)
     .map((key) => key.trim().toLowerCase())
     .filter(Boolean);
+  const networks = String(form.get("allowed_networks") ?? "")
+    .split(/[\s,]+/)
+    .map((network) => network.trim())
+    .filter(Boolean);
   const enabled = form.get("enabled") === "on";
   if (enabled && keys.length === 0) return { error: "Add the Browser Exam Key or Config Key from the lab's Safe Exam Browser." };
   if (keys.some((key) => !/^[0-9a-f]{64}$/.test(key))) return { error: "Each key is 64 hexadecimal characters." };
   try {
     await gateway(`/seb/v1/tenants/${tenantId}/exams/${String(form.get("exam_id"))}/seb-policy`, {
       method: "PUT",
-      body: { title: String(form.get("title") ?? "Exam"), enabled, accepted_keys: keys },
+      body: { title: String(form.get("title") ?? "Exam"), enabled, accepted_keys: keys, allowed_networks: networks },
     });
   } catch (error) {
     return { error: actionError(error) };
   }
   revalidatePath(`/staff/exams/${String(form.get("exam_id"))}`);
-  return { error: null, message: enabled ? "Locked to Safe Exam Browser." : "Safe Exam Browser lock turned off." };
+  const where = networks.length ? ` Students can sit it only from ${networks.length === 1 ? "that network" : "those networks"}.` : "";
+  return { error: null, message: (enabled ? "Locked to Safe Exam Browser." : "Safe Exam Browser lock is off.") + where };
 }
 
 /**

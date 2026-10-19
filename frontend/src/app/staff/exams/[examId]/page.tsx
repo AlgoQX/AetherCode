@@ -214,9 +214,9 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
         </Panel>
       </Section>
 
-      <Section title="Safe Exam Browser" description="Lock the exam to the lab's Safe Exam Browser. Students then start it from the launch file.">
+      <Section title="Lab lockdown" description="Limit the exam to the lab's Safe Exam Browser, its network, or both. Checked on every request while the exam is open.">
         <Panel className="p-5">
-          <ActionForm action={saveSebPolicy} submitLabel="Save lock settings">
+          <ActionForm action={saveSebPolicy} submitLabel="Save lockdown">
             <input type="hidden" name="exam_id" value={examId} />
             <input type="hidden" name="title" value={version.title} />
             <label className="flex items-center gap-2 text-sm text-ink">
@@ -225,6 +225,9 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
             </label>
             <Field label="Browser Exam Keys or Config Keys" htmlFor="seb-keys" hint="From Safe Exam Browser on a lab machine. One per line.">
               <TextArea id="seb-keys" name="accepted_keys" defaultValue={(seb?.accepted_keys ?? []).join("\n")} className="font-mono text-xs" spellCheck={false} />
+            </Field>
+            <Field label="Lab networks" htmlFor="seb-networks" hint="The lab's public address or range (what a lab machine sees at whatismyip), one per line. Leave empty to allow any network.">
+              <TextArea id="seb-networks" name="allowed_networks" defaultValue={(seb?.allowed_networks ?? []).join("\n")} className="font-mono text-xs" spellCheck={false} />
             </Field>
           </ActionForm>
           {seb?.enabled && (

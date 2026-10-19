@@ -229,7 +229,7 @@ export type ExamVersionContent = {
 export type ProctorPolicy = { id: string; name: string; version: number; lifecycle_state: string };
 export type ProctorPolicyVersion = { id: string; proctor_policy_id: string; version_number: number; status: string };
 
-export type SebPolicy = { enabled: boolean; accepted_keys: string[]; title: string };
+export type SebPolicy = { enabled: boolean; accepted_keys: string[]; allowed_networks: string[]; title: string };
 
 /** GET /analytics/v1/tenants/{t}/exam-results?exam_version_id= */
 export type ExamResult = {
