@@ -1,0 +1,87 @@
+import { ArrowLeft } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ActionForm } from "@/components/staff/form";
+import { LoadError, PageHeader, Section } from "@/components/staff/page-header";
+import { Markdown } from "@/components/markdown";
+import { Badge, Panel } from "@/components/ui/card";
+import type { QuestionVersion } from "@/lib/api-types";
+import { gateway } from "@/lib/server/gateway";
+import { requireStaff } from "@/lib/server/staff";
+import { languageName } from "@/lib/utils";
+import { draftNewVersion, publishQuestion } from "../actions";
+import { TestsEditor } from "./tests-editor";
+
+export const metadata: Metadata = { title: "Question" };
+
+export default async function QuestionPage({ params }: { params: Promise<{ versionId: string }> }) {
+  await requireStaff();
+  const { versionId } = await params;
+  let version: QuestionVersion;
+  try {
+    version = await gateway<QuestionVersion>(`/question-bank/v1/question-versions/${versionId}`);
+  } catch (error) {
+    return (
+      <>
+        <PageHeader title="Question" />
+        <LoadError error={error} />
+      </>
+    );
+  }
+  const draft = version.status === "draft";
+  const ready = version.sample_test_case_count > 0 && version.hidden_test_case_count > 0;
+  return (
+    <>
+      <Link href="/staff/questions" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
+        <ArrowLeft className="size-4" strokeWidth={1.75} />
+        Questions
+      </Link>
+      <PageHeader
+        title={version.title}
+        description={`Version ${version.version_number}, ${version.difficulty}, ${version.time_limit_ms / 1000} s, ${Math.round(version.memory_limit_kib / 1024)} MB, ${version.supported_languages.map(languageName).join(", ")}`}
+        actions={<Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
+        <Panel className="p-5">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Statement</h2>
+          <Markdown>{version.prompt_markdown}</Markdown>
+        </Panel>
+        <div>
+          {draft ? (
+            <>
+              <h2 className="mb-3 text-sm font-semibold text-ink">
+                Tests{" "}
+                <span className="font-normal text-ink-muted">
+                  ({version.sample_test_case_count} sample, {version.hidden_test_case_count} hidden saved)
+                </span>
+              </h2>
+              <TestsEditor versionId={version.id} expectedVersion={version.version} existing={version.sample_test_case_count + version.hidden_test_case_count} />
+              <Section title="Publish" description={ready ? "Published questions cannot be edited; you can start a new draft version later." : "Save at least one sample and one hidden test first."}>
+                {ready && (
+                  <ActionForm action={publishQuestion} submitLabel="Publish question">
+                    <input type="hidden" name="version_id" value={version.id} />
+                    <input type="hidden" name="expected_version" value={version.version} />
+                  </ActionForm>
+                )}
+              </Section>
+            </>
+          ) : (
+            <Panel className="p-5">
+              <p className="text-sm text-ink">
+                {version.sample_test_case_count} sample and {version.hidden_test_case_count} hidden tests. Add it to an exam from{" "}
+                <Link href="/staff/exams" className="text-brand hover:underline">
+                  Exams
+                </Link>
+                .
+              </p>
+              <ActionForm action={draftNewVersion} submitLabel="Edit as a new draft" className="mt-4">
+                <input type="hidden" name="question_id" value={version.question_id} />
+              </ActionForm>
+            </Panel>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
