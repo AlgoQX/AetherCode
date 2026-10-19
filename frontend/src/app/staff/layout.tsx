@@ -15,6 +15,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
       { href: "/staff/students", label: "Students", icon: "students" },
       { href: "/staff/organisation", label: "Departments", icon: "organisation" },
       { href: "/staff/accounts", label: "Staff accounts", icon: "accounts" },
+      { href: "/staff/status", label: "System status", icon: "status" },
     );
   }
   return (

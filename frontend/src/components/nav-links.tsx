@@ -1,11 +1,11 @@
 "use client";
 
-import { BookOpen, Building2, House, NotebookPen, UserCog, Users } from "lucide-react";
+import { Activity, BookOpen, Building2, House, NotebookPen, UserCog, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const ICONS = { exams: NotebookPen, home: House, questions: BookOpen, students: Users, organisation: Building2, accounts: UserCog };
+const ICONS = { exams: NotebookPen, home: House, questions: BookOpen, students: Users, organisation: Building2, accounts: UserCog, status: Activity };
 
 export type NavItem = { href: string; label: string; icon: keyof typeof ICONS };
 

@@ -272,6 +272,10 @@ func (handler *Handler) route(request *http.Request) (route, error) {
 	if len(parts) == 2 {
 		forwarded += parts[1]
 	}
+	// Prometheus scrapes services directly; their counters are not for users.
+	if forwarded == "/metrics" {
+		return route{}, errors.New("operational route")
+	}
 	return route{service: parts[0], forwardedPath: forwarded, externalPath: pathValue, upstream: upstream}, nil
 }
 

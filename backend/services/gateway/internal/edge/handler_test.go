@@ -154,6 +154,14 @@ func TestHandlerNeverRoutesJudgeOrSpoofedForwardingHeaders(t *testing.T) {
 		t.Fatalf("judge status = %d", judgeRecorder.Code)
 	}
 
+	metricsRequest := proxyRequest(http.MethodGet, "/api/submission/metrics")
+	metricsRequest.Header.Set("Authorization", "Bearer assertion")
+	metricsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(metricsRecorder, metricsRequest)
+	if metricsRecorder.Code != http.StatusNotFound {
+		t.Fatalf("metrics status = %d, want 404: service metrics are not for users", metricsRecorder.Code)
+	}
+
 	spoofedRequest := proxyRequest(http.MethodGet, "/api/submission/v1/attempts")
 	spoofedRequest.Header.Set("Authorization", "Bearer assertion")
 	spoofedRequest.Header.Set("X-Forwarded-For", "203.0.113.4")
