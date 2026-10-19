@@ -28,6 +28,12 @@ type ResolvedQuestionVersion struct {
 	MemoryLimitKiB     int
 	Evaluation         ResolvedBundle
 	Sample             ResolvedBundle
+	// Kind is "coding" or "mcq" (ADR-0035); an mcq version has no bundles and
+	// carries its options and answer key instead.
+	Kind           string
+	Choices        []string
+	CorrectChoices []int
+	MultipleChoice bool
 }
 
 type ResolvedBundle struct {

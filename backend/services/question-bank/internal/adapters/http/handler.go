@@ -35,6 +35,7 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("POST /v1/questions/{question_id}/archive", handler.archiveQuestion)
 	mux.HandleFunc("GET /v1/question-versions/{question_version_id}", handler.getQuestionVersion)
 	mux.HandleFunc("GET /v1/question-versions/{question_version_id}/export", handler.exportQuestionVersion)
+	mux.HandleFunc("PUT /v1/question-versions/{question_version_id}/choices", handler.setQuestionVersionChoices)
 	mux.HandleFunc("POST /v1/question-versions/{question_version_id}/model-checks", handler.startModelCheck)
 	mux.HandleFunc("GET /v1/question-versions/{question_version_id}/model-checks", handler.listModelChecks)
 	mux.HandleFunc("PUT /v1/question-versions/{question_version_id}/tests", handler.setQuestionVersionTests)
@@ -739,4 +740,39 @@ func (handler *Handler) listModelChecks(writer http.ResponseWriter, request *htt
 	}
 	writer.Header().Set("Cache-Control", "no-store")
 	httpx.WriteJSON(writer, http.StatusOK, checks)
+}
+
+type choicesRequest struct {
+	ExpectedQuestionVersion int64    `json:"expected_question_version"`
+	Choices                 []string `json:"choices"`
+	CorrectChoices          []int    `json:"correct_choices"`
+	MultipleChoice          bool     `json:"multiple_choice"`
+}
+
+// setQuestionVersionChoices makes a draft multiple-choice (ADR-0035).
+func (handler *Handler) setQuestionVersionChoices(writer http.ResponseWriter, request *http.Request) {
+	questionVersionID, err := httpx.ParseUUIDPathValue(request, "question_version_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body choicesRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "question_versions", questionVersionID, "")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	version, err := handler.service.SetQuestionVersionChoices(request.Context(), decision.Capability, app.SetQuestionVersionChoices{
+		QuestionVersionID: questionVersionID, ExpectedQuestionVersion: body.ExpectedQuestionVersion,
+		Choices: body.Choices, CorrectChoices: body.CorrectChoices, MultipleChoice: body.MultipleChoice,
+	})
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	httpx.WriteJSON(writer, http.StatusOK, version)
 }

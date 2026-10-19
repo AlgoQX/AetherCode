@@ -504,3 +504,16 @@ func (repository *Postgres) ListModelChecks(contextValue context.Context, transa
 	}
 	return raw, nil
 }
+
+func (repository *Postgres) SetQuestionVersionChoices(contextValue context.Context, transaction pgx.Tx, command app.SetQuestionVersionChoices) (app.QuestionVersion, error) {
+	choices, err := json.Marshal(command.Choices)
+	if err != nil {
+		return app.QuestionVersion{}, err
+	}
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, `SELECT qbank.set_question_version_choices($1, $2, $3::jsonb, $4, $5)`,
+		command.QuestionVersionID, command.ExpectedQuestionVersion, string(choices), command.CorrectChoices, command.MultipleChoice).Scan(&raw); err != nil {
+		return app.QuestionVersion{}, mapCommandError(err, "set question version choices")
+	}
+	return decodeQuestionVersion(raw)
+}

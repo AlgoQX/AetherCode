@@ -51,11 +51,13 @@ func TestNormalizeVersionContentNormalizesStableAuthoringInput(t *testing.T) {
 	}
 }
 
-func TestNormalizeVersionContentRejectsEmptyLanguagesAndDuplicateLanguages(t *testing.T) {
+// A multiple-choice question has no languages (ADR-0035); publishing a coding
+// question still requires one, which the database enforces.
+func TestNormalizeVersionContentAllowsNoLanguagesAndRejectsDuplicates(t *testing.T) {
 	content := validVersionContent()
 	content.SupportedLanguages = nil
-	if err := normalizeVersionContent(&content); err == nil {
-		t.Fatal("normalizeVersionContent() accepted no languages")
+	if err := normalizeVersionContent(&content); err != nil || content.SupportedLanguages == nil {
+		t.Fatalf("normalizeVersionContent() = %v with languages %v, want an empty list", err, content.SupportedLanguages)
 	}
 
 	content = validVersionContent()
@@ -344,6 +346,10 @@ func (s *panicStore) StartModelCheck(context.Context, pgx.Tx, string, StartModel
 }
 
 func (s *panicStore) ListModelChecks(context.Context, pgx.Tx, string) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) SetQuestionVersionChoices(context.Context, pgx.Tx, SetQuestionVersionChoices) (QuestionVersion, error) {
 	panic("unexpected store call")
 }
 

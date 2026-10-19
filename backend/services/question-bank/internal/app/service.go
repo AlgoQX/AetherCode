@@ -50,6 +50,7 @@ var (
 // Store is the service-owned PostgreSQL port. Implementations receive an
 // already authorized transaction and must never create an unscoped one.
 type Store interface {
+	SetQuestionVersionChoices(context.Context, pgx.Tx, SetQuestionVersionChoices) (QuestionVersion, error)
 	StartModelCheck(context.Context, pgx.Tx, string, StartModelCheck, BundleReference) (json.RawMessage, error)
 	ListModelChecks(context.Context, pgx.Tx, string) (json.RawMessage, error)
 	ExportQuestionVersion(context.Context, pgx.Tx, string, string) (StoredExport, error)
@@ -146,6 +147,12 @@ type QuestionVersion struct {
 	SampleTestCaseCount int        `json:"sample_test_case_count"`
 	HiddenTestCaseCount int        `json:"hidden_test_case_count"`
 	AssetCount          int        `json:"asset_count"`
+	// Kind is "coding" or "mcq" (ADR-0035). Authors see the answer key; students
+	// never read the question bank.
+	Kind           string   `json:"kind"`
+	Choices        []string `json:"choices"`
+	CorrectChoices []int    `json:"correct_choices"`
+	MultipleChoice bool     `json:"multiple_choice"`
 }
 
 type QuestionDetail struct {
@@ -738,8 +745,16 @@ func tagNames(tags []Tag) []string {
 }
 
 func normalizeLanguages(languages *[]string) error {
-	if languages == nil || len(*languages) == 0 || len(*languages) > maximumSupportedLanguage {
-		return apperrors.New(apperrors.CodeInvalidArgument, "supported languages must contain 1 to 32 values")
+	// A multiple-choice question has no languages; publishing a coding one
+	// still requires at least one (ADR-0035).
+	if languages == nil {
+		return apperrors.New(apperrors.CodeInvalidArgument, "supported languages are required")
+	}
+	if *languages == nil {
+		*languages = []string{}
+	}
+	if len(*languages) > maximumSupportedLanguage {
+		return apperrors.New(apperrors.CodeInvalidArgument, "supported languages must contain at most 32 values")
 	}
 	seen := make(map[string]struct{}, len(*languages))
 	for index, language := range *languages {
@@ -959,4 +974,38 @@ func isUUID(value string) bool {
 		}
 	}
 	return true
+}
+
+// SetQuestionVersionChoices makes a draft multiple-choice (ADR-0035): 2 to 10
+// options, the indexes of the correct ones, and whether more than one may be
+// chosen. The database validates them again.
+type SetQuestionVersionChoices struct {
+	QuestionVersionID       string
+	ExpectedQuestionVersion int64
+	Choices                 []string
+	CorrectChoices          []int
+	MultipleChoice          bool
+}
+
+func (service *Service) SetQuestionVersionChoices(contextValue context.Context, capability centralauthz.Capability, command SetQuestionVersionChoices) (QuestionVersion, error) {
+	if !isUUID(command.QuestionVersionID) || command.ExpectedQuestionVersion <= 0 {
+		return QuestionVersion{}, apperrors.New(apperrors.CodeInvalidArgument, "question version identifier or expected revision is invalid")
+	}
+	for index, choice := range command.Choices {
+		command.Choices[index] = strings.TrimSpace(choice)
+		if runeCount(command.Choices[index]) < 1 || runeCount(command.Choices[index]) > 2000 {
+			return QuestionVersion{}, apperrors.New(apperrors.CodeInvalidArgument, "each option needs 1 to 2000 characters")
+		}
+	}
+	if len(command.Choices) < 2 || len(command.Choices) > 10 || len(command.CorrectChoices) < 1 || (!command.MultipleChoice && len(command.CorrectChoices) != 1) {
+		return QuestionVersion{}, apperrors.New(apperrors.CodeInvalidArgument, "a multiple-choice question needs 2 to 10 options and its correct answer")
+	}
+	command.QuestionVersionID = strings.ToLower(strings.TrimSpace(command.QuestionVersionID))
+	var result QuestionVersion
+	err := database.WithTenantTx(contextValue, service.pool, capability, func(transaction pgx.Tx) error {
+		var storeErr error
+		result, storeErr = service.store.SetQuestionVersionChoices(contextValue, transaction, command)
+		return storeErr
+	})
+	return result, err
 }
