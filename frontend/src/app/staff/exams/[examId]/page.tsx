@@ -61,7 +61,8 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
                 }),
             )
           ).filter((entry) => entry !== null);
-    data = { version, content, questions: questions.items, batches, departments, placement, seb, regradable };
+    // Practice problems are public to students, so exams use test questions only (ADR-0041).
+    data = { version, content, questions: questions.items.filter(({ question }) => question.audience !== "practice"), batches, departments, placement, seb, regradable };
   } catch (error) {
     return (
       <>

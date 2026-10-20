@@ -9,6 +9,8 @@ export default async function StudentLayout({ children }: { children: React.Reac
   return (
     <AppShell viewer={viewer} nav={[
           { href: "/student", label: "My exams", icon: "exams" },
+          { href: "/student/practice", label: "Practice", icon: "practice" },
+          { href: "/student/progress", label: "My progress", icon: "progress" },
           { href: "/student/help", label: "Help", icon: "help" },
         ]}>
       {children}

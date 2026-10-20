@@ -11,6 +11,7 @@ import { gateway } from "@/lib/server/gateway";
 import { requireStaff } from "@/lib/server/staff";
 import { languageName } from "@/lib/utils";
 import { draftNewVersion, publishQuestion } from "../actions";
+import { AudienceSwitch } from "./audience-switch";
 import { ModelCheckPanel } from "./model-check";
 import { ChoicesEditor } from "./choices-editor";
 import { TestsEditor } from "./tests-editor";
@@ -50,6 +51,9 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
         description={`Version ${version.version_number}, ${version.difficulty}, ${version.time_limit_ms / 1000} s, ${Math.round(version.memory_limit_kib / 1024)} MB, ${version.supported_languages.map(languageName).join(", ")}`}
         actions={
           <>
+            {version.kind !== "mcq" && (
+              <AudienceSwitch questionId={version.question_id} versionId={version.id} initial={version.audience ?? "test"} />
+            )}
             <Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>
             {/* Exports carry the hidden tests: administrators only, and each is logged (ADR-0032). */}
             {staff.canManageAccounts && version.kind !== "mcq" && version.hidden_test_case_count > 0 && (

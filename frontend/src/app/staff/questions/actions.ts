@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/staff/form";
-import type { QuestionDetail, QuestionVersion } from "@/lib/api-types";
+import type { Audience, QuestionDetail, QuestionVersion } from "@/lib/api-types";
 import { actionError } from "@/lib/server/actions";
 import { gateway } from "@/lib/server/gateway";
 import { requireStaff } from "@/lib/server/staff";
@@ -263,4 +263,20 @@ async function importV1Questions(file: V1File): Promise<ActionState> {
   const imported = file.questions.length - failed.length;
   if (failed.length) return { error: `Imported ${imported} of ${file.questions.length}. Not imported: ${failed.join("; ")}` };
   return { error: null, message: `Imported ${imported} question${imported === 1 ? "" : "s"} as drafts. Check each and publish it from My drafts.` };
+}
+
+/** Moves a question between tests and practice (ADR-0041). */
+export async function setAudience(questionId: string, versionId: string, audience: Audience): Promise<ActionState> {
+  await requireStaff();
+  try {
+    await gateway(`/question-bank/v1/questions/${questionId}/audience`, { method: "PUT", body: { audience } });
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+  revalidatePath(`/staff/questions/${versionId}`);
+  revalidatePath("/staff/questions");
+  return {
+    error: null,
+    message: audience === "practice" ? "Now a practice problem: students can see and solve it." : "Now a test question: hidden from practice.",
+  };
 }

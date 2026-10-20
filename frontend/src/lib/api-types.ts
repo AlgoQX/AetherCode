@@ -198,9 +198,80 @@ export type QuestionVersion = {
   choices: string[] | null;
   correct_choices: number[] | null;
   multiple_choice: boolean;
+  /** The question's: test questions never reach practice (ADR-0041). */
+  audience?: Audience;
 };
 
-export type QuestionDetail = { question: { id: string; slug: string; lifecycle_state: string; version: number }; question_version: QuestionVersion };
+export type Audience = "test" | "practice";
+
+export type QuestionDetail = {
+  question: { id: string; slug: string; lifecycle_state: string; version: number; audience?: Audience };
+  question_version: QuestionVersion;
+};
+
+/** GET /question-bank/v1/tenants/{t}/practice/questions: the catalogue with the student's progress. */
+export type PracticeProblem = {
+  question_id: string;
+  slug: string;
+  title: string;
+  difficulty: "easy" | "medium" | "hard";
+  tags: string[];
+  solved: boolean;
+  attempted: boolean;
+};
+
+export type PracticeQuestion = {
+  question_id: string;
+  question_version_id: string;
+  title: string;
+  prompt_markdown: string;
+  difficulty: "easy" | "medium" | "hard";
+  languages: string[];
+  time_limit_ms: number;
+  memory_limit_kib: number;
+  tags: string[];
+  samples: { input: string; expected_output: string }[];
+};
+
+export type PracticeUnit = {
+  unit_number: number;
+  verdict: string;
+  weight: number;
+  time_ms?: number;
+  memory_kib?: number;
+  stdin?: string;
+  expected_output?: string;
+  stdout?: string;
+  stderr?: string;
+  compile_output?: string;
+};
+
+export type PracticeRun = {
+  id: string;
+  question_id: string;
+  mode: "run" | "submit";
+  custom_input: boolean;
+  language: string;
+  lifecycle_state: "queued" | "completed" | "failed";
+  verdict: string | null;
+  units: PracticeUnit[];
+  passed_units: number;
+  total_units: number;
+  requested_at: string;
+  completed_at: string | null;
+  /** Only on GET .../practice/submissions/{id}. */
+  source?: string;
+};
+
+export type PracticeProgress = {
+  available: number;
+  solved: number;
+  by_difficulty: Partial<Record<"easy" | "medium" | "hard", { available: number; solved: number }>>;
+  submissions: number;
+  accepted: number;
+  /** Days with practice activity in the last year, YYYY-MM-DD in IST. */
+  active_days: string[];
+};
 
 export type Exam = { id: string; tenant_id: string; external_reference?: string; lifecycle_state: string; version: number; created_at: string };
 

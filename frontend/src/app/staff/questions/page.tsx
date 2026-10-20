@@ -16,10 +16,14 @@ const DIFFICULTY_TONE = { easy: "success", medium: "warning", hard: "danger" } a
 
 export default async function QuestionsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await requireStaff();
-  const drafts = (await searchParams).tab === "drafts";
+  const tab = (await searchParams).tab;
+  const drafts = tab === "drafts";
+  const practice = tab === "practice";
   let questions: QuestionDetail[];
   try {
     questions = (await gateway<Page<QuestionDetail>>(`/question-bank/v1/questions?limit=100${drafts ? "&status=draft" : ""}`)).items;
+    // Practice problems are published questions marked for practice (ADR-0041).
+    if (!drafts) questions = questions.filter(({ question }) => (question.audience === "practice") === practice);
   } catch (error) {
     return (
       <>
@@ -44,7 +48,8 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
       />
       <nav aria-label="Question lists" className="mb-4 flex gap-1.5">
         {[
-          { href: "/staff/questions", label: "Published", active: !drafts },
+          { href: "/staff/questions", label: "Tests", active: !drafts && !practice },
+          { href: "/staff/questions?tab=practice", label: "Practice", active: practice },
           { href: "/staff/questions?tab=drafts", label: "My drafts", active: drafts },
         ].map((tab) => (
           <Link
@@ -58,7 +63,13 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
         ))}
       </nav>
       {questions.length === 0 ? (
-        <EmptyState>{drafts ? "You have no drafts." : "No published questions yet. Write one and publish it."}</EmptyState>
+        <EmptyState>
+          {drafts
+            ? "You have no drafts."
+            : practice
+              ? "No practice problems yet. Open a published question and switch it to Practice."
+              : "No published test questions yet. Write one and publish it."}
+        </EmptyState>
       ) : (
         <ul className="overflow-hidden rounded-[var(--radius-surface)] border border-line bg-surface">
           {questions.map(({ question, question_version: version }, index) => (
@@ -74,6 +85,7 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
                 </div>
                 <Badge tone={DIFFICULTY_TONE[version.difficulty]}>{version.difficulty}</Badge>
                 {version.status === "draft" && <Badge>Draft v{version.version_number}</Badge>}
+                {drafts && question.audience === "practice" && <Badge tone="brand">Practice</Badge>}
               </Link>
             </li>
           ))}
