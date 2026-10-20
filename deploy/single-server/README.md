@@ -186,6 +186,22 @@ enables C, C++17, Java, Python 3, JavaScript and Go for `JUDGE_ENGINE` after
 every migration run; the judge starts only after it succeeds. To withdraw a
 language, set `enabled = false` on its row.
 
+## Engine check and load test (M8)
+
+`make engine-check` (or `python3 engine-check.py`) runs a correct, a wrong, a
+slow and a broken program in every exam language as model-solution checks,
+end to end through the gateway, Question Bank, Judge and the engine. It must
+print `Engine OK`. It keeps one draft question, `engine-check`, in the
+administrator's drafts.
+
+`STUDENTS=1000 RAMP=60 make loadtest` (or `python3 loadtest.py --students
+1000 --ramp 60 --runs 3`) creates a batch of students and a one-question exam
+named `LOADTEST-<run>`. Each student then signs in, starts the exam, loads
+the paper, autosaves, runs code, submits the question and ends the test. It
+prints p50/p95/p99 latency per step and the time Judge takes to return
+verdicts. Never run it during a real exam. Like `smoke.py`, it leaves its
+data behind.
+
 ## Upgrades
 
 ```sh
