@@ -38,6 +38,7 @@ type UseCases interface {
 	Logout(context.Context, string) error
 	RequestPasswordReset(context.Context, string, string, string) (string, error)
 	ResetPassword(context.Context, string, string, string, string) error
+	ChangePassword(context.Context, string, string, string, string, string) error
 	BeginTOTP(context.Context, string, string) (string, string, error)
 	ActivateTOTP(context.Context, string, string, string) ([]string, error)
 	DisableTOTP(context.Context, string, string, string) error
@@ -91,6 +92,7 @@ func NewHandler(serviceName string, service UseCases, readiness httpx.ReadinessF
 	mux.HandleFunc("POST /v1/auth/logout", handler.logout)
 	mux.HandleFunc("POST /v1/auth/password-reset", handler.requestPasswordReset)
 	mux.HandleFunc("POST /v1/auth/password-reset/complete", handler.resetPassword)
+	mux.HandleFunc("POST /v1/auth/password", handler.changePassword)
 	mux.HandleFunc("POST /v1/auth/mfa/totp", handler.beginTOTP)
 	mux.HandleFunc("POST /v1/auth/mfa/totp/{factor_id}/activate", handler.activateTOTP)
 	mux.HandleFunc("DELETE /v1/auth/mfa/totp/{factor_id}", handler.disableTOTP)
@@ -542,4 +544,35 @@ func noStore(next http.Handler) http.Handler {
 		writer.Header().Set("Pragma", "no-cache")
 		next.ServeHTTP(writer, request)
 	})
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// changePassword lets a signed-in principal replace their own password,
+// required after staff issue one (ADR-0036).
+func (handler *Handler) changePassword(writer http.ResponseWriter, request *http.Request) {
+	principalID, err := handler.authenticatedPrincipal(request)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body changePasswordRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	requestID, err := database.NewUUIDv7()
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	if err := handler.service.ChangePassword(request.Context(), principalID, body.CurrentPassword, body.NewPassword,
+		clientIP(request), requestID); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
 }

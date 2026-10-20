@@ -5,6 +5,8 @@ import { gatewayURL, secureCookies } from "./config";
 export const ACCESS_COOKIE = "ac_access";
 export const REFRESH_COOKIE = "ac_refresh";
 export const VIEWER_COOKIE = "ac_viewer";
+/** Set while a staff-issued password must be replaced (ADR-0036). */
+export const PASSWORD_COOKIE = "ac_must_change";
 
 /** Refresh this long before the access token expires, so no request carries a stale one. */
 const REFRESH_LEEWAY_MS = 60_000;
@@ -21,6 +23,7 @@ export type TokenPair = {
   access_token_expires_at: string;
   refresh_token: string;
   refresh_token_expires_at: string;
+  password_change_required?: boolean;
 };
 
 export type CookieSpec = {

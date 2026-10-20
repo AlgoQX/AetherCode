@@ -147,3 +147,10 @@ the local outbox and consumes only Identity's targeted response subjects.
 until the exact count/SHA-256 manifest completes. In environments with NATS,
 `IDENTITY_PROJECTION_DATABASE_URL` must use that worker role, never an app or
 owner credential.
+
+## Replacing issued passwords (ADR-0036)
+
+Passwords staff write (provisioning, reissue, single reset) set
+`must_change`; login then returns `password_change_required`.
+`POST /v1/auth/password` with a bearer and `{current_password, new_password}`
+replaces the caller's password and clears the flag.

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { clientIP } from "@/lib/server/request";
 import {
   ACCESS_COOKIE,
+  PASSWORD_COOKIE,
   REFRESH_COOKIE,
   VIEWER_COOKIE,
   needsRefresh,
@@ -39,6 +40,11 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // A staff-issued password is replaced before anything else (ADR-0036).
+  if (request.cookies.get(PASSWORD_COOKIE) && !isAPI && !isLogin && pathname !== "/account/password") {
+    return NextResponse.redirect(new URL("/account/password", request.url));
+  }
+
   if (!access && !refresh && !isLogin && !isAPI) {
     const login = new URL("/login", request.url);
     if (pathname !== "/") login.searchParams.set("next", pathname + search);
@@ -51,7 +57,7 @@ function endSession(request: NextRequest, passThrough: boolean) {
   const response = passThrough
     ? NextResponse.next()
     : NextResponse.redirect(new URL("/login", request.url));
-  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, VIEWER_COOKIE]) response.cookies.delete(name);
+  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, VIEWER_COOKIE, PASSWORD_COOKIE]) response.cookies.delete(name);
   return response;
 }
 

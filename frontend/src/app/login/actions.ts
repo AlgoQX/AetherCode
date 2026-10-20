@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { GatewayError, gateway } from "@/lib/server/gateway";
 import { clearSession, fetchViewer, storeViewer } from "@/lib/server/session";
-import { REFRESH_COOKIE, type TokenPair, sessionCookies } from "@/lib/server/tokens";
+import { secureCookies } from "@/lib/server/config";
+import { PASSWORD_COOKIE, REFRESH_COOKIE, type TokenPair, sessionCookies } from "@/lib/server/tokens";
 import { cookies } from "next/headers";
 import { homeFor, safeNext } from "@/lib/viewer";
 
@@ -44,7 +45,13 @@ export async function login(_previous: LoginState, form: FormData): Promise<Logi
     return { error: "Signed in, but your account details could not be loaded. Try again in a moment.", identifier };
   }
   await storeViewer(viewer, new Date(pair.refresh_token_expires_at));
-  redirect(safeNext(String(form.get("next") ?? "")) ?? homeFor(viewer));
+  const next = safeNext(String(form.get("next") ?? "")) ?? homeFor(viewer);
+  if (pair.password_change_required) {
+    // A password staff issued must be replaced before anything else (ADR-0036).
+    jar.set({ name: PASSWORD_COOKIE, value: "1", httpOnly: true, secure: secureCookies(), sameSite: "strict", path: "/", expires: new Date(pair.refresh_token_expires_at) });
+    redirect(`/account/password?next=${encodeURIComponent(next)}`);
+  }
+  redirect(next);
 }
 
 export async function logout() {

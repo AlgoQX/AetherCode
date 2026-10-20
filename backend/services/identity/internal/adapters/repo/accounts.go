@@ -42,8 +42,8 @@ func (repository *Postgres) ProvisionAccounts(contextValue context.Context, acco
 			return fmt.Errorf("insert provisioned principals: %w", err)
 		}
 		if _, err := transaction.Exec(contextValue, `
-			INSERT INTO identity.password_credentials (principal_id, password_hash)
-			SELECT * FROM unnest($1::uuid[], $2::text[])
+			INSERT INTO identity.password_credentials (principal_id, password_hash, must_change)
+			SELECT id, hash, true FROM unnest($1::uuid[], $2::text[]) AS issued(id, hash)
 		`, ids, hashes); err != nil {
 			return fmt.Errorf("insert provisioned credentials: %w", err)
 		}
@@ -66,10 +66,10 @@ func (repository *Postgres) SetPasswords(contextValue context.Context, assignmen
 			return err
 		}
 		if _, err := transaction.Exec(contextValue, `
-			INSERT INTO identity.password_credentials (principal_id, password_hash)
-			SELECT * FROM unnest($1::uuid[], $2::text[])
+			INSERT INTO identity.password_credentials (principal_id, password_hash, must_change)
+			SELECT id, hash, true FROM unnest($1::uuid[], $2::text[]) AS issued(id, hash)
 			ON CONFLICT (principal_id) DO UPDATE
-			SET password_hash = EXCLUDED.password_hash, changed_at = clock_timestamp(), must_change = false,
+			SET password_hash = EXCLUDED.password_hash, changed_at = clock_timestamp(), must_change = true,
 			    version = identity.password_credentials.version + 1
 		`, ids, hashes); err != nil {
 			return fmt.Errorf("replace credentials: %w", err)

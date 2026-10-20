@@ -5,7 +5,7 @@ import type { Me, Principal } from "@/lib/api-types";
 import { type Viewer, buildViewer } from "@/lib/viewer";
 import { secureCookies } from "./config";
 import { gateway } from "./gateway";
-import { ACCESS_COOKIE, REFRESH_COOKIE, VIEWER_COOKIE, accessSubject } from "./tokens";
+import { ACCESS_COOKIE, REFRESH_COOKIE, VIEWER_COOKIE, accessSubject, PASSWORD_COOKIE } from "./tokens";
 
 /** Reads who the access token belongs to from User and Identity. */
 export async function fetchViewer(token: string): Promise<Viewer> {
@@ -53,5 +53,5 @@ export async function storeViewer(viewer: Viewer, expires: Date) {
 
 export async function clearSession() {
   const jar = await cookies();
-  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, VIEWER_COOKIE]) jar.delete(name);
+  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, VIEWER_COOKIE, PASSWORD_COOKIE]) jar.delete(name);
 }

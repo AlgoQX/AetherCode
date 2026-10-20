@@ -51,6 +51,10 @@ func (fake *fakeUseCases) RequestPasswordReset(context.Context, string, string, 
 	return "reset-token", nil
 }
 
+func (fake *fakeUseCases) ChangePassword(context.Context, string, string, string, string, string) error {
+	return nil
+}
+
 func (fake *fakeUseCases) ResetPassword(context.Context, string, string, string, string) error {
 	return nil
 }
