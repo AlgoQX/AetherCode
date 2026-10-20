@@ -136,4 +136,27 @@ func TestRepinExamItem(t *testing.T) {
 	require.Equal(t, "active", snapshot.LifecycleState, "a started assignment is re-sent as active")
 	require.Equal(t, newKey, snapshot.Items[0]["evaluation_bundle_checksum"])
 	require.Equal(t, "Fixed", snapshot.Items[0]["title"])
+
+	// ADR-0040: the rule's window moves, and its assignments follow.
+	move := func(until string) error {
+		useContext("assessment.assignment_rules")
+		must(`SAVEPOINT move`)
+		must(`SET LOCAL ROLE aether_assessment_app`)
+		_, err := tx.Exec(ctx, `SELECT assessment.move_assignment_window(gen_random_uuid(), $1, $2, now() + $3::interval)`, tenant, ruleID, until)
+		if err != nil {
+			must(`ROLLBACK TO SAVEPOINT move`)
+			return err
+		}
+		must(`RESET ROLE`)
+		return nil
+	}
+	require.Error(t, move("40 days"), "at most 30 days after the window opens")
+	must(`DELETE FROM app.outbox_events`)
+	require.NoError(t, move("25 days"))
+	var moved bool
+	require.NoError(t, tx.QueryRow(ctx, `SELECT available_until > now() + interval '24 days' FROM assessment.candidate_assignments WHERE id = $1`, assignmentID).Scan(&moved))
+	require.True(t, moved)
+	var events int
+	require.NoError(t, tx.QueryRow(ctx, `SELECT count(*) FROM app.outbox_events WHERE event_type = 'assessment.candidate_assignment.snapshot.v1'`).Scan(&events))
+	require.Equal(t, 1, events, "the moved assignment is re-sent")
 }

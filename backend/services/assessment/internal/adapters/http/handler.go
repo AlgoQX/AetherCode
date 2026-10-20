@@ -20,6 +20,7 @@ import (
 // appService is the subset of *app.Service methods consumed by Handler.
 // Defining an interface here keeps the handler testable without a real database.
 type appService interface {
+	MoveAssignmentWindow(context.Context, centralauthz.Capability, app.MoveAssignmentWindow) (int, error)
 	RepinExamItem(context.Context, centralauthz.Capability, app.RepinExamItem) (int, error)
 	CreateProctorPolicy(context.Context, centralauthz.Capability, app.CreateProctorPolicy) (app.ProctorPolicy, error)
 	CreateProctorPolicyVersion(context.Context, centralauthz.Capability, app.CreateProctorPolicyVersion) (app.ProctorPolicyVersion, error)
@@ -85,6 +86,7 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections", handler.addExamSection)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}/items", handler.addExamItem)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/items/{item_id}/repin", handler.repinExamItem)
+	mux.HandleFunc("POST /v1/tenants/{tenant_id}/assignment-rules/{assignment_rule_id}/window", handler.moveAssignmentWindow)
 	mux.HandleFunc("DELETE /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}", handler.removeExamSection)
 	mux.HandleFunc("DELETE /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}/items/{item_id}", handler.removeExamItem)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/publish", handler.publishExamVersion)
@@ -989,4 +991,40 @@ func (handler *Handler) repinExamItem(writer http.ResponseWriter, request *http.
 		return
 	}
 	httpx.WriteJSON(writer, http.StatusOK, map[string]int{"assignments_resent": resent})
+}
+
+type moveWindowRequest struct {
+	AvailableUntil time.Time `json:"available_until"`
+}
+
+// moveAssignmentWindow moves a published assignment's close time (ADR-0040).
+func (handler *Handler) moveAssignmentWindow(writer http.ResponseWriter, request *http.Request) {
+	tenantID, err := tenantID(request)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	ruleID, err := httpx.ParseUUIDPathValue(request, "assignment_rule_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body moveWindowRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "assignment_rules", ruleID, tenantID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	moved, err := handler.service.MoveAssignmentWindow(request.Context(), decision.Capability, app.MoveAssignmentWindow{
+		TenantID: tenantID, AssignmentRuleID: ruleID, AvailableUntil: body.AvailableUntil,
+	})
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	httpx.WriteJSON(writer, http.StatusOK, map[string]int{"assignments_moved": moved})
 }

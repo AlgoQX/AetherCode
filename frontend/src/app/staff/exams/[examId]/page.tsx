@@ -13,6 +13,7 @@ import { requireCollege } from "@/lib/server/staff";
 import { formatDuration, formatScoreText, formatWindow, isoToCollegeTime } from "@/lib/utils";
 import { addPool, addQuestion, duplicateExam, publishExam, regradeItem, saveSebPolicy } from "../actions";
 import { AssignForm } from "./assign-form";
+import { MoveWindow } from "./move-window";
 
 export const metadata: Metadata = { title: "Exam" };
 
@@ -238,7 +239,7 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
         <Section title="Assigned to" description="Students in a target see the exam on their dashboard. New students who join later get it too.">
           {content.assignment_rules.length > 0 && (
             <div className="mb-4">
-              <Table head={["Target", "Window", "Students"]}>
+              <Table head={["Target", "Window", "Students", "Close at"]}>
                 {content.assignment_rules.map((rule) => (
                   <tr key={rule.id}>
                     <td className="px-4 py-2.5 text-ink">
@@ -246,6 +247,9 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">{formatWindow(rule.available_from, rule.available_until)}</td>
                     <td className="px-4 py-2.5 tabular-nums text-ink">{rule.assigned_candidates}</td>
+                    <td className="px-4 py-2.5">
+                      <MoveWindow examId={examId} ruleId={rule.id} closes={isoToCollegeTime(rule.available_until)} />
+                    </td>
                   </tr>
                 ))}
               </Table>

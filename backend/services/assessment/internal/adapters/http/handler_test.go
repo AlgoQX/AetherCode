@@ -55,6 +55,10 @@ type stubService struct {
 	addExamItemFn               func(context.Context, centralauthz.Capability, app.AddExamItem) (app.ExamItem, error)
 }
 
+func (s *stubService) MoveAssignmentWindow(context.Context, centralauthz.Capability, app.MoveAssignmentWindow) (int, error) {
+	return 0, nil
+}
+
 func (s *stubService) RepinExamItem(context.Context, centralauthz.Capability, app.RepinExamItem) (int, error) {
 	return 0, nil
 }

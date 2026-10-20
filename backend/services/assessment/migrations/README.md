@@ -22,3 +22,7 @@ question; the immutability trigger lets exactly that update through, and
 every assignment of the exam version is snapshotted again. The snapshot
 builder sends started, completed and expired assignments as active.
 Rollback drops the function and restores the trigger and builder.
+
+`000032_move_assignment_window` adds `move_assignment_window` (ADR-0040):
+staff move an assignment rule's close time after publication; its
+assignments follow and are snapshotted again. Rollback drops it.

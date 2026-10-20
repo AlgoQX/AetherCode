@@ -962,3 +962,13 @@ func (repository *Postgres) RepinExamItem(ctx context.Context, transaction pgx.T
 	}
 	return resent, nil
 }
+
+func (repository *Postgres) MoveAssignmentWindow(ctx context.Context, transaction pgx.Tx, command app.MoveAssignmentWindow) (int, error) {
+	var moved int
+	err := transaction.QueryRow(ctx, `SELECT assessment.move_assignment_window($1, $2, $3, $4)`,
+		command.EventID, command.TenantID, command.AssignmentRuleID, command.AvailableUntil.UTC()).Scan(&moved)
+	if err != nil {
+		return 0, mapWriteError(err, "the window could not be moved")
+	}
+	return moved, nil
+}

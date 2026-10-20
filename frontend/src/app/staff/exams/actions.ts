@@ -281,3 +281,19 @@ export async function regradeItem(_previous: ActionState, form: FormData): Promi
     return { error: actionError(error) };
   }
 }
+
+/** Moves an assignment's close time after publication (ADR-0040). */
+export async function moveWindow(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const { tenantId } = await requireCollege();
+  try {
+    const until = collegeTimeToISO(String(form.get("available_until")));
+    const { assignments_moved: moved } = await gateway<{ assignments_moved: number }>(
+      `/assessment/v1/tenants/${tenantId}/assignment-rules/${String(form.get("rule_id"))}/window`,
+      { method: "POST", body: { available_until: until } },
+    );
+    revalidatePath(`/staff/exams/${String(form.get("exam_id"))}`);
+    return { error: null, message: `Moved for ${moved} student${moved === 1 ? "" : "s"}.` };
+  } catch (error) {
+    return { error: error instanceof Error && !("status" in error) ? error.message : actionError(error) };
+  }
+}

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	centralauthz "github.com/aethercode/aethercode/libs/pkg/authz"
 	"github.com/aethercode/aethercode/libs/pkg/database"
@@ -50,4 +51,31 @@ func (service *Service) RepinExamItem(ctx context.Context, capability centralaut
 		return 0, fmt.Errorf("repin exam item: %w", err)
 	}
 	return resent, nil
+}
+
+// MoveAssignmentWindow moves an assignment rule's close time after
+// publication, the exam app's "push the window back" (ADR-0040).
+type MoveAssignmentWindow struct {
+	TenantID         string
+	AssignmentRuleID string
+	AvailableUntil   time.Time
+	EventID          string
+}
+
+func (service *Service) MoveAssignmentWindow(ctx context.Context, capability centralauthz.Capability, command MoveAssignmentWindow) (int, error) {
+	command.TenantID, command.AssignmentRuleID = normalizeID(command.TenantID), normalizeID(command.AssignmentRuleID)
+	if !validID(command.TenantID) || !validID(command.AssignmentRuleID) || command.AvailableUntil.IsZero() {
+		return 0, invalid("an assignment rule and a new close time are required")
+	}
+	var err error
+	if command.EventID, err = database.NewUUIDv7(); err != nil {
+		return 0, err
+	}
+	var moved int
+	err = database.WithTenantTx(ctx, service.pool, capability, func(transaction pgx.Tx) error {
+		var storeErr error
+		moved, storeErr = service.store.MoveAssignmentWindow(ctx, transaction, command)
+		return storeErr
+	})
+	return moved, err
 }
