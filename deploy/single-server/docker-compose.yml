@@ -207,6 +207,15 @@ services:
       IDENTITY_INTROSPECTION_TLS_KEY_FILE: /certs/identity.key
       IDENTITY_INTROSPECTION_CLIENT_CA_FILE: /certs/ca.crt
       IDENTITY_INTROSPECTION_TRUSTED_CLIENT_SPIFFE_ID: spiffe://aethercode.local/user
+      # Single sign-on (ADR-0042); off while IDENTITY_SSO_ISSUER is empty. The
+      # admin token lives in ./certs (mounted at /certs), never in .env.
+      IDENTITY_SSO_ISSUER: ${IDENTITY_SSO_ISSUER:-}
+      IDENTITY_SSO_CLIENT_ID: ${IDENTITY_SSO_CLIENT_ID:-}
+      IDENTITY_SSO_CLIENT_SECRET: ${IDENTITY_SSO_CLIENT_SECRET:-}
+      IDENTITY_SSO_REDIRECT_URI: ${PUBLIC_ORIGIN}/auth/sso/callback
+      IDENTITY_SSO_ADMIN_TOKEN_FILE: ${IDENTITY_SSO_ADMIN_TOKEN_FILE:-}
+      IDENTITY_SSO_ORGANIZATION_ID: ${IDENTITY_SSO_ORGANIZATION_ID:-}
+      IDENTITY_SSO_EMAIL_DOMAIN: ${IDENTITY_SSO_EMAIL_DOMAIN:-}
     build: { context: ../../backend, dockerfile: services/identity/Dockerfile }
 
   user:
@@ -473,6 +482,8 @@ services:
     build: { context: ../../frontend }
     environment:
       GATEWAY_URL: http://gateway:8080
+      # "on" shows "Sign in with your St. Joseph's account" (ADR-0042).
+      AETHERCODE_SSO: ${AETHERCODE_SSO:-off}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is not set; see setup.sh}
     depends_on: [gateway]
     ports:

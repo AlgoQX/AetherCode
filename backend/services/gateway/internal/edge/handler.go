@@ -30,6 +30,8 @@ var publicIdentityRoutes = map[string]struct{}{
 	http.MethodPost + " /v1/auth/register":                {},
 	http.MethodPost + " /v1/auth/verify-email":            {},
 	http.MethodPost + " /v1/auth/login":                   {},
+	http.MethodPost + " /v1/auth/sso/start":               {},
+	http.MethodPost + " /v1/auth/sso/callback":            {},
 	http.MethodPost + " /v1/auth/mfa/verify-login":        {},
 	http.MethodPost + " /v1/auth/refresh":                 {},
 	http.MethodPost + " /v1/auth/logout":                  {},

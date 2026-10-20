@@ -212,7 +212,10 @@ type TokenPair struct {
 // Service implements authentication flows with injected time and opaque token
 // issuance to make business invariants deterministic in tests.
 type Service struct {
-	store                     Store
+	store Store
+	// sso and ssoStore are set by UseSSO when single sign-on is configured.
+	sso                       SSOProvider
+	ssoStore                  SSOStore
 	signer                    *authn.Signer
 	accessTokenLifetime       time.Duration
 	refreshTokenLifetime      time.Duration

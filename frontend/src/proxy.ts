@@ -15,7 +15,8 @@ import {
 // only read the access cookie.
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const isLogin = pathname === "/login";
+  // Single sign-on pages run before there is a session (ADR-0042).
+  const isLogin = pathname === "/login" || pathname.startsWith("/auth/sso");
   const isAPI = pathname.startsWith("/api/");
   const access = request.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = request.cookies.get(REFRESH_COOKIE)?.value;
