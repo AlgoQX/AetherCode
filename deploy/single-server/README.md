@@ -117,6 +117,36 @@ Without it every request appears to come from the frontend, so per-IP login
 limits and lab network rules would treat all students as one address. The
 gateway stays published on loopback for `smoke.py` and administration.
 
+## Single sign-on
+
+Students and staff can sign in with their St. Joseph's account at
+`sso.stjosephsplacements.in` (ZITADEL, ADR-0042). The AetherCode password
+always keeps working, so exams never depend on it. To turn it on:
+
+1. In ZITADEL's `.env`, set
+   `ZITADEL_SYSTEMDEFAULTS_PASSWORDHASHER_VERIFIERS=argon2` and restart
+   `zitadel-server`, so AetherCode's password hashes can be imported.
+2. In the ZITADEL console, create a project with an OIDC **Web**
+   application:
+   - authentication method **Basic**;
+   - redirect URI `https://aethercode.stjosephsplacements.in/auth/sso/callback`;
+   - post-logout URI `https://aethercode.stjosephsplacements.in/login`.
+
+   Note the client ID and secret.
+3. Create a service user with the **Org Owner** role, generate a personal
+   access token, and save it as `certs/sso-admin.pat` (`chmod 600`).
+4. In `.env`, set:
+   - `IDENTITY_SSO_ISSUER=https://sso.stjosephsplacements.in`
+   - `IDENTITY_SSO_CLIENT_ID` and `IDENTITY_SSO_CLIENT_SECRET`
+   - `IDENTITY_SSO_ADMIN_TOKEN_FILE=/certs/sso-admin.pat`
+   - `IDENTITY_SSO_ORGANIZATION_ID` (the organization's ID)
+   - `IDENTITY_SSO_EMAIL_DOMAIN` (e.g. `students.stjosephs.ac.in`)
+   - `AETHERCODE_SSO=on`
+5. `docker compose up -d identity frontend`.
+
+Every existing account is then copied to ZITADEL within minutes. Accounts
+the provider already has are linked, not duplicated.
+
 ## Backups
 
 Two services write to `deploy/single-server/backups/` (gitignored):
