@@ -458,8 +458,6 @@ export type QueueStats = {
 
 export type GradingQueue = { checked_at: string; evaluations: QueueStats; runs: QueueStats };
 
-export type RoleName = "super_admin" | "college_admin" | "department_user" | "mentor" | "student" | "placement_user";
-
 /** GET /user/v1/role-assignments (X-Tenant-ID). */
 export type RoleAssignment = {
   id: string;

@@ -245,6 +245,10 @@ func TestExamOperations(t *testing.T) {
 	})
 
 	t.Run("staff see the grading queue; a candidate cannot (ADR-0043)", func(t *testing.T) {
+		// The fixture records Judge's fixed completion time; a live one is recent.
+		_, err := pool.Exec(ctx, `UPDATE submission.evaluation_requests SET completed_at = clock_timestamp()
+			WHERE tenant_id = $1 AND lifecycle_state = 'completed'`, unitTenantID)
+		require.NoError(t, err)
 		var queue struct {
 			Evaluations struct {
 				Queued    int `json:"queued"`
@@ -260,7 +264,7 @@ func TestExamOperations(t *testing.T) {
 		}))
 		require.Zero(t, queue.Evaluations.Queued)
 		require.GreaterOrEqual(t, queue.Evaluations.Completed, 1, "the graded attempt's evaluation finished just now")
-		err := candidate(func(transaction pgx.Tx) error {
+		err = candidate(func(transaction pgx.Tx) error {
 			_, err := transaction.Exec(ctx, `SELECT submission.get_grading_queue($1)`, unitTenantID)
 			return err
 		})
