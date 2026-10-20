@@ -183,6 +183,56 @@ call("POST", f"/question-bank/v1/question-versions/{version_id}/publish",
      {"expected_question_version": version["version"]}, token=faculty, expect=200)
 ok("question published")
 
+# Practice (ADR-0041). The bank is shared by every college, so the smoke
+# question goes back to tests at the end and real students never see it.
+practice = f"/question-bank/v1/tenants/{tenant}/practice"
+question_id = question["question"]["id"]
+audience_path = f"/question-bank/v1/questions/{question_id}/audience"
+practice_ids = lambda: [p["question_id"] for p in call("GET", f"{practice}/questions", token=student, expect=200)[1]]
+assert question_id not in practice_ids()
+status, _, _ = call("GET", f"{practice}/questions/{question_id}", token=student)
+assert status == 404, status
+status, _, _ = call("PUT", audience_path, {"audience": "practice"}, token=student)
+assert status == 403, status
+ok("a test question is invisible to students, and students cannot move it")
+call("PUT", audience_path, {"audience": "practice"}, token=faculty, expect=200)
+try:
+    assert question_id in practice_ids()
+    _, problem, _ = call("GET", f"{practice}/questions/{question_id}", token=student, expect=200)
+    assert problem["samples"] == [{"input": "1 2\n", "expected_output": "3\n"}, {"input": "5 7\n", "expected_output": "12\n"}], problem
+    assert "100 200" not in json.dumps(problem) and "object_key" not in json.dumps(problem), problem
+    ok("a practice problem shows its sample tests, never hidden ones")
+
+    def practise(body):
+        _, started, _ = call("POST", f"{practice}/questions/{question_id}/submissions", body, token=student, expect=202)
+        for _ in range(90):
+            _, found, _ = call("GET", f"{practice}/submissions/{started['id']}", token=student, expect=200)
+            if found["lifecycle_state"] != "queued":
+                return found
+            time.sleep(1)
+        sys.exit(f"FAIL the practice run never finished: {found}")
+
+    solution = "a, b = map(int, input().split())\nprint(a + b)\n"
+    sample_run = practise({"language": "python3", "mode": "run", "source": solution})
+    assert [(u["stdin"], u["stdout"], u["verdict"]) for u in sample_run["units"]] == [("1 2\n", "3\n", "accepted"), ("5 7\n", "12\n", "accepted")], sample_run
+    ok("a practice run shows sample input, expected and actual output")
+    own = practise({"language": "python3", "mode": "run", "source": solution, "input": "20 22\n"})
+    assert own["custom_input"] and own["units"][0]["stdout"] == "42\n", own
+    ok("a practice run on the student's own input returns its output")
+    judged = practise({"language": "python3", "mode": "submit", "source": solution})
+    assert judged["verdict"] == "accepted" and judged["passed_units"] == judged["total_units"] == 4, judged
+    assert judged["source"] == solution and all("stdout" not in u for u in judged["units"]), judged
+    ok("a practice submission is judged on every test; hidden tests show verdicts only")
+    status, _, _ = call("GET", f"{practice}/submissions/{judged['id']}", token=faculty)
+    assert status in (403, 404), status
+    _, progress, _ = call("GET", f"{practice}/progress", token=student, expect=200)
+    assert progress["solved"] >= 1 and progress["accepted"] >= 1 and progress["active_days"], progress
+    ok("practice runs are the student's own, and progress counts the solve")
+finally:
+    call("PUT", audience_path, {"audience": "test"}, token=faculty, expect=200)
+assert question_id not in practice_ids()
+ok("moved back to tests, the question leaves practice")
+
 _, policy, _ = call("POST", f"/assessment/v1/tenants/{tenant}/proctor-policies", {"name": f"Lab {run}"}, token=faculty, expect=201)
 _, policy_version, _ = call("POST", f"/assessment/v1/tenants/{tenant}/proctor-policies/{policy['id']}/versions",
                            {"expected_policy_version": policy["version"], "policy": {"seb_required": False}}, token=faculty, expect=201)
