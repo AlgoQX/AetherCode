@@ -79,7 +79,7 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
           ))}
         </ul>
       )}
-      <Section title="Import" description="Add a question from a file a college administrator exported. It arrives as your draft, tests included.">
+      <Section title="Import" description="Add questions from a file a college administrator exported, or from the old exam app's question export. They arrive as your drafts, tests included.">
         <ImportQuestionForm />
       </Section>
     </>

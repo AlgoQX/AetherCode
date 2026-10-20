@@ -130,6 +130,7 @@ export async function importQuestion(_previous: ActionState, form: FormData): Pr
   } catch {
     return { error: "The file is not a question export." };
   }
+  if ((question as unknown as { format?: string })?.format === V1_FORMAT) return importV1Questions(question as unknown as V1File);
   if (question?.format !== EXPORT_FORMAT || !Array.isArray(question.tests)) return { error: "The file is not a question export." };
   const slug = `${question.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50)}-${crypto.randomUUID().slice(0, 6)}`;
   let created: QuestionDetail;
@@ -196,4 +197,70 @@ export async function saveChoices(versionId: string, expectedVersion: number, ch
   }
   revalidatePath(`/staff/questions/${versionId}`);
   return { error: null, message: "Options saved." };
+}
+
+/** The exam app's question file (apps/exam-v1, faculty → questions → export). */
+const V1_FORMAT = "aethercode-questions";
+/** The exam app set languages per exam; its questions get its four. */
+const V1_LANGUAGES = ["c", "cpp17", "java", "python3"];
+
+type V1File = {
+  format: string;
+  version: number;
+  questions: {
+    title: string;
+    kind: "coding" | "mcq";
+    statement: string;
+    timeLimitMs: number;
+    memoryLimitMb: number;
+    options: string[];
+    correct: number[];
+    tests: { input: string; expectedOutput: string; isSample: boolean; weight: number }[];
+  }[];
+};
+
+/** Each question of an exam-app file becomes a draft here, coding or multiple choice. */
+async function importV1Questions(file: V1File): Promise<ActionState> {
+  if (file.version !== 1 || !Array.isArray(file.questions) || file.questions.length === 0) return { error: "The exam-app file is empty or from an unknown version." };
+  if (file.questions.length > 100) return { error: "Import at most 100 questions at a time." };
+  const failed: string[] = [];
+  for (const question of file.questions) {
+    const mcq = question.kind === "mcq";
+    try {
+      const created = await gateway<QuestionDetail>("/question-bank/v1/questions", {
+        method: "POST",
+        body: {
+          slug: `${question.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50)}-${crypto.randomUUID().slice(0, 6)}`,
+          title: question.title,
+          prompt_markdown: question.statement,
+          difficulty: "medium",
+          supported_languages: mcq ? [] : V1_LANGUAGES,
+          time_limit_ms: Math.min(600_000, Math.max(50, question.timeLimitMs || 2000)),
+          memory_limit_kib: Math.min(4_194_304, Math.max(1024, (question.memoryLimitMb || 256) * 1024)),
+          tags: [],
+        },
+      });
+      const version = created.question_version;
+      if (mcq) {
+        await gateway(`/question-bank/v1/question-versions/${version.id}/choices`, {
+          method: "PUT",
+          body: { expected_question_version: version.version, choices: question.options, correct_choices: question.correct, multiple_choice: question.correct.length > 1 },
+        });
+      } else if (question.tests.length > 0) {
+        await gateway(`/question-bank/v1/question-versions/${version.id}/tests`, {
+          method: "PUT",
+          body: {
+            expected_question_version: version.version,
+            tests: question.tests.map((test) => ({ input: test.input, expected_output: test.expectedOutput, sample: test.isSample, weight: test.weight || 1 })),
+          },
+        });
+      }
+    } catch (error) {
+      failed.push(`${question.title} (${actionError(error)})`);
+    }
+  }
+  revalidatePath("/staff/questions");
+  const imported = file.questions.length - failed.length;
+  if (failed.length) return { error: `Imported ${imported} of ${file.questions.length}. Not imported: ${failed.join("; ")}` };
+  return { error: null, message: `Imported ${imported} question${imported === 1 ? "" : "s"} as drafts. Check each and publish it from My drafts.` };
 }

@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { FormMessage, SubmitButton, initialActionState } from "@/components/staff/form";
 import { importQuestion } from "./actions";
 
-/** Import a question file another college exported (ADR-0032). */
+/** Import a question file another college exported (ADR-0032), or an exam-app (v1) question file. */
 export function ImportQuestionForm() {
   const [state, action] = useActionState(importQuestion, initialActionState);
   return (
