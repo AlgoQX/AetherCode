@@ -96,6 +96,7 @@ type Store interface {
 	ListExamLatestAnswers(context.Context, pgx.Tx, ExamVersionCommand) ([]StoredLatestAnswer, error)
 	SaveChoice(context.Context, pgx.Tx, SaveChoice) (json.RawMessage, error)
 	SetIntegrity(context.Context, pgx.Tx, SetIntegrity) error
+	RegradeItem(context.Context, pgx.Tx, ExamVersionCommand, string) (json.RawMessage, error)
 	RecordIntegrityEvent(context.Context, pgx.Tx, GetAttempt, string) error
 	Ping(context.Context) error
 }

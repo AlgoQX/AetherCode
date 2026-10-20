@@ -188,3 +188,22 @@ func (service *Service) RecordIntegrityEvent(contextValue context.Context, capab
 		return service.store.RecordIntegrityEvent(contextValue, transaction, command, kind)
 	})
 }
+
+// RegradeItem evaluates an item's answers again on its current tests, after
+// Assessment repinned it to a corrected question version (ADR-0039).
+func (service *Service) RegradeItem(contextValue context.Context, capability centralauthz.Capability, command ExamVersionCommand, examItemID string) (json.RawMessage, error) {
+	if err := command.validate(); err != nil {
+		return nil, err
+	}
+	examItemID = normalizeUUID(examItemID)
+	if !isUUID(examItemID) {
+		return nil, apperrors.New(apperrors.CodeInvalidArgument, "exam item ID must be a UUID")
+	}
+	var result json.RawMessage
+	err := service.inTenant(contextValue, capability, func(transaction pgx.Tx) error {
+		var storeErr error
+		result, storeErr = service.store.RegradeItem(contextValue, transaction, command, examItemID)
+		return storeErr
+	})
+	return result, err
+}

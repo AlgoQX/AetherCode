@@ -27,6 +27,23 @@ func (handler *Handler) registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /v1/tenants/{tenant_id}/attempts/{attempt_id}/choices/{exam_item_id}", handler.saveChoice)
 	mux.HandleFunc("PUT /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/integrity", handler.setIntegrity)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/attempts/{attempt_id}/events", handler.recordIntegrityEvent)
+	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/items/{exam_item_id}/regrade", handler.regradeItem)
+}
+
+// regradeItem evaluates an item's answers again on its current tests (ADR-0039).
+func (handler *Handler) regradeItem(writer http.ResponseWriter, request *http.Request) {
+	examItemID, err := httpx.ParseUUIDPathValue(request, "exam_item_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	command, capability, err := handler.authorizeExamVersion(request, "write", "score_summaries")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	result, err := handler.service.RegradeItem(request.Context(), capability, command, examItemID)
+	writeRaw(writer, http.StatusOK, result, err)
 }
 
 type integrityRequest struct {

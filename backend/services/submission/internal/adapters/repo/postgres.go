@@ -703,3 +703,8 @@ func (repository *Postgres) RecordIntegrityEvent(contextValue context.Context, t
 	}
 	return nil
 }
+
+func (repository *Postgres) RegradeItem(contextValue context.Context, transaction pgx.Tx, command app.ExamVersionCommand, examItemID string) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "regrade exam item",
+		`SELECT submission.regrade_exam_item($1, $2, $3)`, command.TenantID, command.ExamVersionID, examItemID)
+}

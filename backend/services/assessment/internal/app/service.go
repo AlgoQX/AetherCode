@@ -40,6 +40,7 @@ const (
 // an unscoped application transaction; the Service supplies the signed RLS
 // transaction to every call.
 type Store interface {
+	RepinExamItem(context.Context, pgx.Tx, RepinExamItem) (int, error)
 	ClaimIdempotency(context.Context, pgx.Tx, IdempotencyClaim) (json.RawMessage, bool, error)
 	CompleteIdempotency(context.Context, pgx.Tx, IdempotencyClaim, int, json.RawMessage) error
 	CreateProctorPolicy(context.Context, pgx.Tx, CreateProctorPolicy) (ProctorPolicy, error)

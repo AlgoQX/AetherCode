@@ -113,6 +113,9 @@ func (validationStore) SetIntegrity(context.Context, pgx.Tx, SetIntegrity) error
 func (validationStore) RecordIntegrityEvent(context.Context, pgx.Tx, GetAttempt, string) error {
 	return nil
 }
+func (validationStore) RegradeItem(context.Context, pgx.Tx, ExamVersionCommand, string) (json.RawMessage, error) {
+	return nil, nil
+}
 func (validationStore) Ping(context.Context) error { return nil }
 
 func TestStartAttemptRejectsInvalidCommandBeforeTransaction(t *testing.T) {

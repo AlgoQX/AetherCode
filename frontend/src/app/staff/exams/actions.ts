@@ -247,3 +247,37 @@ export async function addPool(_previous: ActionState, form: FormData): Promise<A
   revalidatePath(`/staff/exams/${String(form.get("exam_id"))}`);
   return { error: null, message: "Pool added. Add its questions below; give them all the same marks." };
 }
+
+/**
+ * Regrade one item with a corrected version of its question (ADR-0039):
+ * Assessment repins the item and re-sends every assignment, then Submission
+ * evaluates every answer of the item again on the corrected tests.
+ */
+export async function regradeItem(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const { tenantId } = await requireCollege();
+  const versionId = String(form.get("version_id"));
+  const itemId = String(form.get("item_id"));
+  try {
+    await gateway(`/assessment/v1/tenants/${tenantId}/exam-versions/${versionId}/items/${itemId}/repin`, {
+      method: "POST",
+      body: { question_version_id: String(form.get("question_version_id")) },
+    });
+    // The re-sent assignments reach Submission through the event stream; give
+    // them a moment before asking it to regrade.
+    let result: { evaluations: number; attempts_regrading: number } | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      result = await gateway(`/submission/v1/tenants/${tenantId}/exam-versions/${versionId}/items/${itemId}/regrade`, { method: "POST", body: {} });
+      if (result && result.evaluations > 0) break;
+    }
+    revalidatePath(`/staff/exams/${String(form.get("exam_id"))}`);
+    return {
+      error: null,
+      message: result?.evaluations
+        ? `Regrading ${result.evaluations} answer${result.evaluations === 1 ? "" : "s"}; results update as they finish.`
+        : "The item now uses the corrected version. No answers needed regrading yet; run it again if students had submitted.",
+    };
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+}

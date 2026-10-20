@@ -20,6 +20,7 @@ import (
 // appService is the subset of *app.Service methods consumed by Handler.
 // Defining an interface here keeps the handler testable without a real database.
 type appService interface {
+	RepinExamItem(context.Context, centralauthz.Capability, app.RepinExamItem) (int, error)
 	CreateProctorPolicy(context.Context, centralauthz.Capability, app.CreateProctorPolicy) (app.ProctorPolicy, error)
 	CreateProctorPolicyVersion(context.Context, centralauthz.Capability, app.CreateProctorPolicyVersion) (app.ProctorPolicyVersion, error)
 	PublishProctorPolicyVersion(context.Context, centralauthz.Capability, app.PublishProctorPolicyVersion) (app.ProctorPolicyVersion, error)
@@ -83,6 +84,7 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/content", handler.getExamVersionContent)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections", handler.addExamSection)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}/items", handler.addExamItem)
+	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/items/{item_id}/repin", handler.repinExamItem)
 	mux.HandleFunc("DELETE /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}", handler.removeExamSection)
 	mux.HandleFunc("DELETE /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/sections/{section_id}/items/{item_id}", handler.removeExamItem)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/publish", handler.publishExamVersion)
@@ -945,4 +947,46 @@ func idempotencyKey(request *http.Request) (string, error) {
 		}
 	}
 	return key, nil
+}
+
+type repinExamItemRequest struct {
+	QuestionVersionID string `json:"question_version_id"`
+}
+
+// repinExamItem points an exam item at a corrected version of its question
+// and re-sends the exam's assignments for regrading (ADR-0039).
+func (handler *Handler) repinExamItem(writer http.ResponseWriter, request *http.Request) {
+	tenantID, err := tenantID(request)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	versionID, err := httpx.ParseUUIDPathValue(request, "exam_version_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	itemID, err := httpx.ParseUUIDPathValue(request, "item_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body repinExamItemRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "exam_items", itemID, tenantID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	resent, err := handler.service.RepinExamItem(request.Context(), decision.Capability, app.RepinExamItem{
+		TenantID: tenantID, ExamVersionID: versionID, ItemID: itemID, QuestionVersionID: body.QuestionVersionID,
+	})
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	httpx.WriteJSON(writer, http.StatusOK, map[string]int{"assignments_resent": resent})
 }

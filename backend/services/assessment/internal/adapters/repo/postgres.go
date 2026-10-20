@@ -947,3 +947,18 @@ func mapWriteError(err error, message string) error {
 	}
 	return fmt.Errorf("write Assessment record: %w", err)
 }
+
+func (repository *Postgres) RepinExamItem(ctx context.Context, transaction pgx.Tx, command app.RepinExamItem) (int, error) {
+	var resent int
+	err := transaction.QueryRow(ctx, `
+		SELECT assessment.repin_exam_item($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+	`, command.EventID, command.TenantID, command.ExamVersionID, command.ItemID, command.Resolved.QuestionID, command.QuestionVersionID,
+		command.Resolved.EvaluationBundle.ObjectKey, command.Resolved.EvaluationBundle.SHA256, command.Resolved.EvaluationBundle.KeyReference,
+		command.Resolved.SampleBundle.ObjectKey, command.Resolved.SampleBundle.SHA256, command.Resolved.SampleBundle.KeyReference,
+		command.Resolved.TimeLimitMS, command.Resolved.MemoryLimitKiB, command.Resolved.SupportedLanguages,
+		command.Resolved.Title, command.Resolved.PromptMarkdown).Scan(&resent)
+	if err != nil {
+		return 0, mapWriteError(err, "exam item could not be repinned")
+	}
+	return resent, nil
+}

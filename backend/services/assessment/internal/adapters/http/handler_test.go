@@ -55,6 +55,10 @@ type stubService struct {
 	addExamItemFn               func(context.Context, centralauthz.Capability, app.AddExamItem) (app.ExamItem, error)
 }
 
+func (s *stubService) RepinExamItem(context.Context, centralauthz.Capability, app.RepinExamItem) (int, error) {
+	return 0, nil
+}
+
 func (s *stubService) GetExam(ctx context.Context, cap centralauthz.Capability, tenantID, examID string) (app.Exam, error) {
 	return s.getExamFn(ctx, cap, tenantID, examID)
 }

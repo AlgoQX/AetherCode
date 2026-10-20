@@ -15,3 +15,10 @@ restores the 000026 to 000028 functions and drops the column.
 options, key and multiple flag with a constraint per kind,
 `add_exam_mcq_item`, and both snapshot builders carrying them. Rollback
 refuses while mcq items exist and restores the 000029 builders.
+
+`000031_repin_exam_item` adds `repin_exam_item` (ADR-0039): an item of a
+published exam may take a corrected published version of its own coding
+question; the immutability trigger lets exactly that update through, and
+every assignment of the exam version is snapshotted again. The snapshot
+builder sends started, completed and expired assignments as active.
+Rollback drops the function and restores the trigger and builder.

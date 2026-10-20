@@ -5,13 +5,13 @@ import { ActionForm, Field, Select, TextArea, TextInput } from "@/components/sta
 import { EmptyState, LoadError, PageHeader, Section, Table } from "@/components/staff/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge, Panel } from "@/components/ui/card";
-import type { ExamVersionContent, Page, QuestionDetail, SebPolicy } from "@/lib/api-types";
+import type { ExamVersionContent, Page, QuestionDetail, QuestionVersion, SebPolicy } from "@/lib/api-types";
 import { departmentLabel, listBatches, listDepartments, listPlacement } from "@/lib/server/directory";
 import { latestVersion } from "@/lib/server/exams";
 import { GatewayError, gateway } from "@/lib/server/gateway";
 import { requireCollege } from "@/lib/server/staff";
 import { formatDuration, formatScoreText, formatWindow, isoToCollegeTime } from "@/lib/utils";
-import { addPool, addQuestion, duplicateExam, publishExam, saveSebPolicy } from "../actions";
+import { addPool, addQuestion, duplicateExam, publishExam, regradeItem, saveSebPolicy } from "../actions";
 import { AssignForm } from "./assign-form";
 
 export const metadata: Metadata = { title: "Exam" };
@@ -42,7 +42,25 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
       listPlacement(),
       sebPolicy(staff.tenantId, examId),
     ]);
-    data = { version, content, questions: questions.items, batches, departments, placement, seb };
+    // For a published exam: items whose question has a newer published version
+    // can be regraded with it (ADR-0039).
+    const regradable =
+      version.status === "draft"
+        ? []
+        : (
+            await Promise.all(
+              content.sections
+                .flatMap((section) => section.items)
+                .map(async (item) => {
+                  const pinned = await gateway<QuestionVersion>(`/question-bank/v1/question-versions/${item.question_version_id}`).catch(() => null);
+                  if (!pinned || pinned.kind === "mcq") return null;
+                  const versions = await gateway<Page<QuestionVersion>>(`/question-bank/v1/questions/${pinned.question_id}/versions?limit=50`).catch(() => null);
+                  const newer = (versions?.items ?? []).filter((candidate) => candidate.status === "published" && candidate.version_number > pinned.version_number);
+                  return newer.length ? { item, pinned, newer } : null;
+                }),
+            )
+          ).filter((entry) => entry !== null);
+    data = { version, content, questions: questions.items, batches, departments, placement, seb, regradable };
   } catch (error) {
     return (
       <>
@@ -51,7 +69,7 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
       </>
     );
   }
-  const { version, content, questions, batches, departments, placement, seb } = data;
+  const { version, content, questions, batches, departments, placement, seb, regradable } = data;
   const draft = version.status === "draft";
   const items = content.sections.flatMap((section) => section.items);
   const sections = content.sections.toSorted((a, b) => a.position - b.position);
@@ -248,6 +266,36 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
               }}
             />
           </Panel>
+        </Section>
+      )}
+
+      {regradable.length > 0 && (
+        <Section
+          title="Regrade with a corrected question"
+          description="A newer version of these questions was published, for example with fixed tests. Using it re-runs every student's answers to that question on the new tests; marks stay the same."
+        >
+          <div className="space-y-3">
+            {regradable.map(({ item, pinned, newer }) => (
+              <Panel key={item.id} className="p-4">
+                <ActionForm action={regradeItem} submitLabel="Use it and regrade">
+                  <input type="hidden" name="exam_id" value={examId} />
+                  <input type="hidden" name="version_id" value={version.id} />
+                  <input type="hidden" name="item_id" value={item.id} />
+                  <Field label={`${item.position}. ${item.question_title ?? pinned.title} (now version ${pinned.version_number})`} htmlFor={`regrade-${item.id}`}>
+                    <Select id={`regrade-${item.id}`} name="question_version_id">
+                      {newer
+                        .toSorted((a, b) => b.version_number - a.version_number)
+                        .map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            Version {candidate.version_number}, {candidate.sample_test_case_count} sample and {candidate.hidden_test_case_count} hidden tests
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                </ActionForm>
+              </Panel>
+            ))}
+          </div>
         </Section>
       )}
 

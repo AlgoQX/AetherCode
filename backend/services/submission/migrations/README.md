@@ -128,3 +128,10 @@ the monitor returns them with a flag count per candidate. Rollback drops them.
 `000033_result_tests` adds to a released result each item's kind and the
 per-test verdicts of its best completed evaluation, by number only
 (ADR-0038). Rollback restores the 000028 function.
+
+`000034_regrade` adds regrading (ADR-0039): an answer revision may be
+evaluated once per bundle; `regrade_exam_item` evaluates every previously
+evaluated answer of an item again on the item's current bundle (origin
+`regrade`) and puts graded attempts back to grading; `attempt_item_scores`
+counts only evaluations on the current bundle. Rollback refuses while regrade
+evaluations exist.
