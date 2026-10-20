@@ -118,7 +118,8 @@ test("password change → start → run/submit → end test → release → scor
   // Student: open the exam once it opens and start it.
   await student.goto("/student");
   await expect(student.getByText(setup.title)).toBeVisible();
-  await student.getByRole("link", { name: /Open exam/ }).first().click();
+  // Listed under Upcoming until it opens; its link leads to the same exam page.
+  await student.getByRole("link", { name: new RegExp(setup.title) }).first().click();
   const start = student.getByRole("button", { name: /Start exam/ });
   await expect(start).toBeEnabled({ timeout: 60_000 });
   await start.click();
