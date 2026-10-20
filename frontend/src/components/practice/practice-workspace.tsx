@@ -100,11 +100,24 @@ export function PracticeWorkspace({ tenantId, question }: { tenantId: string; qu
     return () => clearTimeout(timer);
   }, [question.question_id, language, source]);
 
-  const loadHistory = useCallback(async () => {
-    const runs = await api<PracticeRun[]>(`${base}/questions/${question.question_id}/submissions`).catch(() => []);
-    setHistory(runs.filter((entry) => entry.mode === "submit"));
-  }, [base, question.question_id]);
-  useEffect(() => void loadHistory(), [loadHistory]);
+  const fetchHistory = useCallback(
+    () =>
+      api<PracticeRun[]>(`${base}/questions/${question.question_id}/submissions`).then(
+        (runs) => runs.filter((entry) => entry.mode === "submit"),
+        () => [],
+      ),
+    [base, question.question_id],
+  );
+  const loadHistory = useCallback(() => fetchHistory().then(setHistory), [fetchHistory]);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchHistory().then((runs) => {
+      if (!cancelled) setHistory(runs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchHistory]);
 
   /** Starts a job and polls it until Judge finishes. */
   const execute = useCallback(
