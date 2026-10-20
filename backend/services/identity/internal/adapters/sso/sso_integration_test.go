@@ -5,6 +5,7 @@ package sso
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 
@@ -70,5 +71,96 @@ func checkPassword(t *testing.T, provider *Provider, username, password string, 
 	err = provider.do(context.Background(), http.MethodPost, provider.config.Issuer+"/v2/sessions", headers, body, nil)
 	if (err == nil) != want {
 		t.Fatalf("password %q accepted = %v, want %v (%v)", password, err == nil, want, err)
+	}
+}
+
+// TestSignInAgainstZitadel runs a real authorization-code flow: Start, the
+// provider's authorization request finished with a password session (as its
+// login UI does), then Identify with the returned code.
+func TestSignInAgainstZitadel(t *testing.T) {
+	issuer, patFile, orgID := os.Getenv("ZITADEL_TEST_URL"), os.Getenv("ZITADEL_TEST_PAT_FILE"), os.Getenv("ZITADEL_TEST_ORG_ID")
+	if issuer == "" || patFile == "" || orgID == "" {
+		t.Skip("ZITADEL_TEST_URL, ZITADEL_TEST_PAT_FILE and ZITADEL_TEST_ORG_ID are not set")
+	}
+	ctx := context.Background()
+	admin := New(Config{Issuer: issuer, ClientID: "x", ClientSecret: "x", RedirectURI: "x",
+		AdminTokenFile: patFile, OrganizationID: orgID, EmailDomain: "students.example.invalid"})
+	headers, err := admin.adminHeaders()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var project struct {
+		ID string `json:"id"`
+	}
+	if err := admin.do(ctx, http.MethodPost, issuer+"/management/v1/projects", headers, map[string]any{"name": "AetherCode SSO test"}, &project); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	redirect := "http://localhost/auth/sso/callback"
+	var client struct {
+		ClientID     string `json:"clientId"`
+		ClientSecret string `json:"clientSecret"`
+	}
+	if err := admin.do(ctx, http.MethodPost, issuer+"/management/v1/projects/"+project.ID+"/apps/oidc", headers, map[string]any{
+		"name": "aethercode", "redirectUris": []string{redirect}, "responseTypes": []string{"OIDC_RESPONSE_TYPE_CODE"},
+		"grantTypes": []string{"OIDC_GRANT_TYPE_AUTHORIZATION_CODE"}, "appType": "OIDC_APP_TYPE_WEB",
+		"authMethodType": "OIDC_AUTH_METHOD_TYPE_BASIC", "devMode": true,
+		"loginVersion": map[string]any{"loginV2": map[string]any{"baseUri": "http://localhost/login"}},
+	}, &client); err != nil {
+		t.Fatalf("create OIDC app: %v", err)
+	}
+
+	hash, err := domain.HashPassword("SignIn2026abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.CreateUser(ctx, app.DirectoryAccount{Username: "22it042", DisplayName: "Ravi S", PasswordHash: hash}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	provider := New(Config{Issuer: issuer, ClientID: client.ClientID, ClientSecret: client.ClientSecret, RedirectURI: redirect})
+	start, err := provider.Start(ctx)
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	response, err := noRedirect.Get(start.AuthorizationURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	login, err := url.Parse(response.Header.Get("Location"))
+	if err != nil || login.Query().Get("authRequest") == "" {
+		t.Fatalf("authorization did not redirect to the login UI: %d %q", response.StatusCode, response.Header.Get("Location"))
+	}
+	var session struct {
+		SessionID    string `json:"sessionId"`
+		SessionToken string `json:"sessionToken"`
+	}
+	if err := admin.do(ctx, http.MethodPost, issuer+"/v2/sessions", headers, map[string]any{"checks": map[string]any{
+		"user": map[string]any{"loginName": "22it042"}, "password": map[string]any{"password": "SignIn2026abc"},
+	}}, &session); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	var finished struct {
+		CallbackURL string `json:"callbackUrl"`
+	}
+	if err := admin.do(ctx, http.MethodPost, issuer+"/v2/oidc/auth_requests/"+login.Query().Get("authRequest"), headers,
+		map[string]any{"session": map[string]any{"sessionId": session.SessionID, "sessionToken": session.SessionToken}}, &finished); err != nil {
+		t.Fatalf("finish auth request: %v", err)
+	}
+	callback, err := url.Parse(finished.CallbackURL)
+	if err != nil || callback.Query().Get("state") != start.State || callback.Query().Get("code") == "" {
+		t.Fatalf("callback %q does not carry the state and a code", finished.CallbackURL)
+	}
+
+	if _, err := provider.Identify(ctx, callback.Query().Get("code"), "wrong-verifier-wrong-verifier-wrong-verifier"); err == nil {
+		t.Fatal("Identify accepted a wrong PKCE verifier")
+	}
+	identity, err := provider.Identify(ctx, callback.Query().Get("code"), start.Verifier)
+	if err != nil {
+		t.Fatalf("Identify: %v", err)
+	}
+	if identity.Subject == "" || app.DirectoryUsername(identity.Username) != "22it042" {
+		t.Fatalf("Identify = %+v, want the user 22it042", identity)
 	}
 }
