@@ -450,6 +450,23 @@ _, choice_monitor, _ = call("GET", f"/submission/v1/tenants/{tenant}/exam-versio
 choice_row = [c for c in choice_monitor["candidates"] if c["attempt_id"] == choice_attempt["id"]]
 assert choice_row and float(choice_row[0]["score"]) == 10.0 and float(choice_row[0]["maximum_score"]) == 10.0, choice_monitor
 ok("a multiple-choice question is answered, never shows its key, and is graded on hand-in")
+
+# Staff operations views (ADR-0043).
+_, queue, _ = call("GET", f"/submission/v1/tenants/{tenant}/grading-queue", token=admin, expect=200)
+assert {"evaluations", "runs"} <= set(queue) and queue["evaluations"]["completed_last_hour"] >= 1, queue
+status, _, _ = call("GET", f"/submission/v1/tenants/{tenant}/grading-queue", token=student)
+assert status == 403, status
+ok("staff see the grading queue; students cannot")
+_, audit, _ = call("GET", f"/user/v1/tenants/{tenant}/staff-audit", token=admin, expect=200)
+assert any(e["service"] == "submission" and e["resource_type"] == "attempt_events" and e["allowed"] for e in audit), audit[:5]
+assert not any(e["resource_type"] == "attempts" for e in audit), "students' own writes are not staff actions"
+status, _, _ = call("GET", f"/user/v1/tenants/{tenant}/staff-audit", token=faculty)
+assert status == 403, status
+ok("the audit log records staff actions (extra time, announcements) for administrators only")
+faculty_id = json.loads(base64.urlsafe_b64decode(faculty.split(".")[1] + "=="))["sub"]
+_, named, _ = call("POST", f"/user/v1/tenants/{tenant}/accounts/describe", {"principal_ids": [faculty_id, admin_id]}, token=admin, expect=200)
+assert [n["display_name"] for n in named] == ["Faculty One"] and "password" not in json.dumps(named), named
+ok("staff names are described for this college's accounts only")
 print("ALL M6 CHECKS PASSED")
 
 # --- M4: Safe Exam Browser ------------------------------------------------
