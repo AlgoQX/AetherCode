@@ -31,8 +31,15 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, identity
 AS $function$
 DECLARE
-    target uuid := CASE WHEN TG_TABLE_NAME = 'principals' THEN NEW.id ELSE NEW.principal_id END;
+    target uuid;
 BEGIN
+    -- Separate branches: PL/pgSQL compiles a statement against the row type
+    -- only when it runs, so each table reads only its own column.
+    IF TG_TABLE_NAME = 'principals' THEN
+        target := NEW.id;
+    ELSE
+        target := NEW.principal_id;
+    END IF;
     INSERT INTO identity.sso_directory_sync (principal_id)
     VALUES (target)
     ON CONFLICT (principal_id) DO UPDATE
