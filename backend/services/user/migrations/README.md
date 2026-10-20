@@ -38,3 +38,7 @@ no access to another candidate's opaque session ID.
 `000027_snapshot_placement_department` adds
 `users.student_placement_department`, so the batch affiliation snapshot names
 the student's placement department (ADR-0026).
+
+`000028_practice_self_policy` lets students read and write
+`practice_submissions` in their own `self` scope (ADR-0041); Question Bank
+binds every practice row to the signed actor.

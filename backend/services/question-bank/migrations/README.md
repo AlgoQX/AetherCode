@@ -21,3 +21,12 @@ Judge completion worker. Rollback drops them.
 publication rules per kind (the language and bundle constraints apply to
 coding versions only), and the resolve function's new columns. Rollback
 refuses while mcq versions or language-less versions exist.
+
+`000018_practice` adds practice problems (ADR-0041): `questions.audience`
+(`test` or `practice`, returned on question and version responses),
+`set_question_audience`, a tenant-carrying `authz.set_context` for
+`qbank.practice_submissions` only, `require_practice_context`, the
+`practice_submissions` table and the student functions (list, get, start,
+history, one run, progress), plus `finish_practice_submission` for the
+Judge completion worker. Rollback drops them and restores the earlier
+functions.
