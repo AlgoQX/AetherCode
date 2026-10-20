@@ -135,3 +135,8 @@ evaluated answer of an item again on the item's current bundle (origin
 `regrade`) and puts graded attempts back to grading; `attempt_item_scores`
 counts only evaluations on the current bundle. Rollback refuses while regrade
 evaluations exist.
+
+`000035_grading_queue` adds `get_grading_queue` (ADR-0043): for staff with
+read on `score_summaries`, the college's graded evaluations and sample runs
+waiting for Judge, the oldest wait, and last-hour completions, failures and
+median and p95 time to verdict.

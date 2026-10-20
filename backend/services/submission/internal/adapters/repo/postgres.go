@@ -612,6 +612,10 @@ func (repository *Postgres) GetExamMonitor(contextValue context.Context, transac
 		`SELECT submission.get_exam_monitor($1, $2)`, command.TenantID, command.ExamVersionID)
 }
 
+func (repository *Postgres) GetGradingQueue(contextValue context.Context, transaction pgx.Tx, tenantID string) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "get grading queue", `SELECT submission.get_grading_queue($1)`, tenantID)
+}
+
 func (repository *Postgres) ReleaseResults(contextValue context.Context, transaction pgx.Tx, command app.ReleaseResults) (json.RawMessage, error) {
 	return queryJSON(contextValue, transaction, "release results",
 		`SELECT jsonb_build_object('results_released_at', submission.set_exam_results_release($1, $2, $3))`,

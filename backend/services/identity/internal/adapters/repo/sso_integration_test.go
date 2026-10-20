@@ -34,6 +34,11 @@ func TestSingleSignOn(t *testing.T) {
 	require.NoError(t, repository.ProvisionAccounts(ctx, []app.NewAccount{student},
 		app.AccountAudit{ActorID: uuid.NewString(), RequestID: uuid.NewString()}))
 
+	summaries, err := repository.DescribeAccounts(ctx, []string{student.PrincipalID, uuid.NewString()})
+	require.NoError(t, err)
+	require.Equal(t, []app.AccountSummary{{PrincipalID: student.PrincipalID, Username: "23ec014", DisplayName: "Meera Nair", Status: "active"}}, summaries,
+		"existing accounts are described by name and status only (ADR-0043)")
+
 	due, err := repository.DueDirectorySync(ctx, 10)
 	require.NoError(t, err)
 	require.Len(t, due, 1, "a provisioned account is queued for the provider")

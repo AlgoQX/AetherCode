@@ -23,6 +23,8 @@ type Options = {
   anonymous?: boolean;
   /** Use this bearer instead of the session cookie (right after login). */
   token?: string;
+  /** Extra request headers, such as X-Tenant-ID for role assignments. */
+  headers?: Record<string, string>;
 };
 
 /**
@@ -32,7 +34,7 @@ type Options = {
  */
 export async function gateway<T>(path: string, options: Options = {}): Promise<T> {
   const method = options.method ?? "GET";
-  const requestHeaders: Record<string, string> = { Accept: "application/json" };
+  const requestHeaders: Record<string, string> = { ...options.headers, Accept: "application/json" };
   if (options.body !== undefined) requestHeaders["Content-Type"] = "application/json";
   if (method !== "GET") requestHeaders["Idempotency-Key"] = randomUUID();
   const ip = clientIP(await headers());

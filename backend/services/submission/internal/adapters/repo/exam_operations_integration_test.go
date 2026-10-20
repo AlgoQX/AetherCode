@@ -244,6 +244,29 @@ func TestExamOperations(t *testing.T) {
 		require.Equal(t, map[string]any{"released": false}, result(), "hiding results again hides the score")
 	})
 
+	t.Run("staff see the grading queue; a candidate cannot (ADR-0043)", func(t *testing.T) {
+		var queue struct {
+			Evaluations struct {
+				Queued    int `json:"queued"`
+				Completed int `json:"completed_last_hour"`
+			} `json:"evaluations"`
+		}
+		require.NoError(t, staff("submission.read", "submission.score_summaries", func(transaction pgx.Tx) error {
+			var raw []byte
+			if err := transaction.QueryRow(ctx, `SELECT submission.get_grading_queue($1)`, unitTenantID).Scan(&raw); err != nil {
+				return err
+			}
+			return json.Unmarshal(raw, &queue)
+		}))
+		require.Zero(t, queue.Evaluations.Queued)
+		require.GreaterOrEqual(t, queue.Evaluations.Completed, 1, "the graded attempt's evaluation finished just now")
+		err := candidate(func(transaction pgx.Tx) error {
+			_, err := transaction.Exec(ctx, `SELECT submission.get_grading_queue($1)`, unitTenantID)
+			return err
+		})
+		require.ErrorContains(t, err, "does not allow")
+	})
+
 	t.Run("staff review the attempt; a candidate cannot", func(t *testing.T) {
 		var review struct {
 			Attempt struct {

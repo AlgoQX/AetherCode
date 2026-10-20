@@ -82,6 +82,10 @@ func (validationStore) GetCodeRun(context.Context, pgx.Tx, GetCodeRun) (CodeRun,
 func (validationStore) ListCodeRuns(context.Context, pgx.Tx, ListCodeRuns) ([]CodeRun, error) {
 	return nil, nil
 }
+func (validationStore) GetGradingQueue(context.Context, pgx.Tx, string) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
 func (validationStore) GetExamMonitor(context.Context, pgx.Tx, ExamVersionCommand) (json.RawMessage, error) {
 	return nil, nil
 }

@@ -17,6 +17,7 @@ import (
 
 func (handler *Handler) registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/monitor", handler.getExamMonitor)
+	mux.HandleFunc("GET /v1/tenants/{tenant_id}/grading-queue", handler.getGradingQueue)
 	mux.HandleFunc("PUT /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/results-release", handler.releaseResults)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/extensions", handler.extendDeadlines)
 	mux.HandleFunc("POST /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/announcements", handler.postAnnouncement)
@@ -331,4 +332,21 @@ func (handler *Handler) candidateRead(
 	}
 	response, err := read(request.Context(), decision.Capability, app.GetAttempt{TenantID: tenantID, AttemptID: attemptID})
 	writeRaw(writer, http.StatusOK, response, err)
+}
+
+// getGradingQueue shows staff the college's grading queue (ADR-0043).
+func (handler *Handler) getGradingQueue(writer http.ResponseWriter, request *http.Request) {
+	tenantID, err := httpx.ParseUUIDPathValue(request, "tenant_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "read", "score_summaries", tenantID, tenantID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.Header().Set("Cache-Control", "no-store")
+	queue, err := handler.service.GetGradingQueue(request.Context(), decision.Capability, tenantID)
+	writeRaw(writer, http.StatusOK, queue, err)
 }

@@ -22,6 +22,14 @@ const (
 type fakeStore struct {
 	snapshot Snapshot
 	err      error
+	audit    *[]StaffAction
+}
+
+func (store fakeStore) RecordStaffAction(_ context.Context, action StaffAction) error {
+	if store.audit != nil {
+		*store.audit = append(*store.audit, action)
+	}
+	return nil
 }
 
 func (store fakeStore) Snapshot(context.Context, SnapshotQuery) (Snapshot, error) {
@@ -460,5 +468,54 @@ func TestStudentsPractiseOnlyAsThemselvesWithTheirTenant(t *testing.T) {
 	questions.ResourceType = "questions"
 	if _, err := service.Authorize(context.Background(), questions); err == nil {
 		t.Fatal("Authorize(questions with a tenant) succeeded, want a validation error")
+	}
+}
+
+// ADR-0043: staff write decisions, allowed or denied, become the audit log;
+// reads and students' own writes do not, and only college administrators
+// read the log, however broad a department's policy is.
+func TestStaffWritesAreAudited(t *testing.T) {
+	t.Parallel()
+	keyring := testKeyring(t)
+	var recorded []StaffAction
+	newService := func(assignment Assignment, rules ...[]string) *Service {
+		policy := make([]centralauthz.PolicyRule, 0, len(rules))
+		for _, values := range rules {
+			policy = append(policy, centralauthz.PolicyRule{PType: "p", Values: values})
+		}
+		service, err := NewService(fakeStore{snapshot: Snapshot{Revision: 2, Assignments: []Assignment{assignment}, PolicyRules: policy}, audit: &recorded}, keyring, nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return service
+	}
+	request := Request{PrincipalID: testPrincipal, TenantID: testTenant, RequestID: testRequestID, Action: "write",
+		ResourceType: "attempt_events", ResourceID: "exam-version-1", TargetService: "submission"}
+
+	faculty := newService(Assignment{Role: centralauthz.RoleDepartmentUser, ScopeKind: "department", TenantID: testTenant, ScopeID: testPrincipal},
+		[]string{"department_user", "department", "/*", "*"})
+	if decision, err := faculty.Authorize(context.Background(), request); err != nil || !decision.Allowed {
+		t.Fatalf("faculty write = %#v, %v", decision, err)
+	}
+	read := request
+	read.Action = "read"
+	if _, err := faculty.Authorize(context.Background(), read); err != nil {
+		t.Fatal(err)
+	}
+	student := newService(Assignment{Role: centralauthz.RoleStudent, ScopeKind: "self", TenantID: testTenant, ScopeID: testPrincipal},
+		[]string{"student", "self", "/attempts/:id", "write"})
+	own := request
+	own.ResourceType, own.ResourceID = "attempts", testPrincipal
+	if _, err := student.Authorize(context.Background(), own); err != nil {
+		t.Fatal(err)
+	}
+	if len(recorded) != 1 || recorded[0].ResourceType != "attempt_events" || !recorded[0].Allowed || recorded[0].TenantID != testTenant {
+		t.Fatalf("audit = %#v, want only the faculty write", recorded)
+	}
+
+	audit := Request{PrincipalID: testPrincipal, TenantID: testTenant, RequestID: testRequestID, Action: "read",
+		ResourceType: "staff_audit", ResourceID: testTenant, TargetService: "user"}
+	if decision, err := faculty.Authorize(context.Background(), audit); err != nil || decision.Allowed {
+		t.Fatalf("faculty reading the audit log = %#v, %v; want denied", decision, err)
 	}
 }

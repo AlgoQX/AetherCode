@@ -87,6 +87,7 @@ type Store interface {
 	GetCodeRun(context.Context, pgx.Tx, GetCodeRun) (CodeRun, error)
 	ListCodeRuns(context.Context, pgx.Tx, ListCodeRuns) ([]CodeRun, error)
 	GetExamMonitor(context.Context, pgx.Tx, ExamVersionCommand) (json.RawMessage, error)
+	GetGradingQueue(context.Context, pgx.Tx, string) (json.RawMessage, error)
 	ReleaseResults(context.Context, pgx.Tx, ReleaseResults) (json.RawMessage, error)
 	ExtendDeadlines(context.Context, pgx.Tx, ExtendDeadlines) (int, error)
 	PostAnnouncement(context.Context, pgx.Tx, PostAnnouncement) (json.RawMessage, error)

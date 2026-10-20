@@ -444,3 +444,43 @@ export type ModelCheck = {
   requested_at: string;
   completed_at: string | null;
 };
+
+/** One kind of Judge work in GET /submission/v1/tenants/{t}/grading-queue (ADR-0043). */
+export type QueueStats = {
+  queued: number;
+  dispatched: number;
+  oldest_waiting_at: string | null;
+  completed_last_hour: number;
+  failed_last_hour: number;
+  median_seconds_last_hour: number | null;
+  p95_seconds_last_hour: number | null;
+};
+
+export type GradingQueue = { checked_at: string; evaluations: QueueStats; runs: QueueStats };
+
+export type RoleName = "super_admin" | "college_admin" | "department_user" | "mentor" | "student" | "placement_user";
+
+/** GET /user/v1/role-assignments (X-Tenant-ID). */
+export type RoleAssignment = {
+  id: string;
+  principal_id: string;
+  role_name: RoleName;
+  scope_kind: string;
+  tenant_id?: string;
+  scope_id?: string;
+  status: string;
+  created_at: string;
+};
+
+/** POST /user/v1/tenants/{t}/accounts/describe (ADR-0043). */
+export type AccountSummary = { principal_id: string; username?: string; email?: string; display_name: string; status: string };
+
+/** GET /user/v1/tenants/{t}/staff-audit (ADR-0043): one staff write decision. */
+export type AuditEntry = {
+  occurred_at: string;
+  principal_id: string;
+  service: string;
+  resource_type: string;
+  resource_id: string;
+  allowed: boolean;
+};

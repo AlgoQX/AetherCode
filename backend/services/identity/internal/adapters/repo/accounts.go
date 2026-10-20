@@ -257,3 +257,24 @@ func recordAccountEvents(contextValue context.Context, transaction pgx.Tx, ids [
 	}
 	return nil
 }
+
+// DescribeAccounts reads the name and status of existing principals (ADR-0043).
+func (repository *Postgres) DescribeAccounts(contextValue context.Context, ids []string) ([]app.AccountSummary, error) {
+	rows, err := repository.pool.Query(contextValue, `
+		SELECT id::text, COALESCE(username, ''), COALESCE(email, ''), display_name, status
+		FROM identity.principals WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL
+	`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("describe accounts: %w", err)
+	}
+	defer rows.Close()
+	summaries := []app.AccountSummary{}
+	for rows.Next() {
+		var summary app.AccountSummary
+		if err := rows.Scan(&summary.PrincipalID, &summary.Username, &summary.Email, &summary.DisplayName, &summary.Status); err != nil {
+			return nil, fmt.Errorf("scan account summary: %w", err)
+		}
+		summaries = append(summaries, summary)
+	}
+	return summaries, rows.Err()
+}

@@ -9,12 +9,14 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     { href: "/staff", label: "Overview", icon: "home" },
     { href: "/staff/exams", label: "Exams", icon: "exams" },
     { href: "/staff/questions", label: "Questions", icon: "questions" },
+    { href: "/staff/analytics", label: "Analytics", icon: "analytics" },
   ];
   if (staff.canManageAccounts) {
     nav.push(
       { href: "/staff/students", label: "Students", icon: "students" },
       { href: "/staff/organisation", label: "Departments", icon: "organisation" },
       { href: "/staff/accounts", label: "Staff accounts", icon: "accounts" },
+      { href: "/staff/audit", label: "Audit log", icon: "audit" },
       { href: "/staff/status", label: "System status", icon: "status" },
     );
   }

@@ -40,6 +40,29 @@ func (repository *Postgres) Ping(contextValue context.Context) error {
 // Snapshot reads all state required for exactly one authorization decision in
 // one read-only transaction. It is intentionally not cached across requests:
 // a committed role or membership revocation must be visible immediately.
+// ListStaffAudit reads a college's audit log through list_staff_audit (ADR-0043).
+func (repository *Postgres) ListStaffAudit(contextValue context.Context, transaction pgx.Tx, tenantID string, before *time.Time, limit int) (json.RawMessage, error) {
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, `SELECT users.list_staff_audit($1, $2, $3)`, tenantID, before, limit).Scan(&raw); err != nil {
+		return nil, mapWriteError(err, "list staff audit")
+	}
+	return raw, nil
+}
+
+// RecordStaffAction appends a staff write decision to the audit log (ADR-0043).
+func (repository *Postgres) RecordStaffAction(contextValue context.Context, action app.StaffAction) error {
+	var tenantID any
+	if action.TenantID != "" {
+		tenantID = action.TenantID
+	}
+	_, err := repository.pool.Exec(contextValue, `SELECT users.record_staff_action($1, $2, $3, $4, $5, $6)`,
+		action.PrincipalID, tenantID, action.TargetService, action.ResourceType, action.ResourceID, action.Allowed)
+	if err != nil {
+		return fmt.Errorf("record staff action: %w", err)
+	}
+	return nil
+}
+
 func (repository *Postgres) Snapshot(contextValue context.Context, query app.SnapshotQuery) (app.Snapshot, error) {
 	transaction, err := repository.pool.BeginTx(contextValue, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {

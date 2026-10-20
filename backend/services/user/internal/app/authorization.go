@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"sort"
 	"strings"
@@ -75,7 +76,20 @@ type Snapshot struct {
 // dedicated aether_user_authz_reader role, never as a table owner.
 type Store interface {
 	Snapshot(context.Context, SnapshotQuery) (Snapshot, error)
+	// RecordStaffAction appends one staff write decision to the audit log
+	// (ADR-0043).
+	RecordStaffAction(context.Context, StaffAction) error
 	Ping(context.Context) error
+}
+
+// StaffAction is one write decision for someone who holds a staff role.
+type StaffAction struct {
+	PrincipalID   string
+	TenantID      string
+	TargetService string
+	ResourceType  string
+	ResourceID    string
+	Allowed       bool
 }
 
 // SnapshotQuery narrows relationship checks needed for placement scopes.
@@ -141,7 +155,7 @@ var routes = map[string]route{
 	"user": {
 		Audience: "aether_users", ActionPrefix: "user", ResourcePrefix: "users",
 		OptionalTenantResources: resourceSet("role_assignments", "placement_department_memberships"),
-		Resources:               resourceSet("accounts", "profiles", "students", "student_department_memberships", "current_student_affiliations", "student_batch_affiliations", "mentor_batch_assignments", "role_assignments", "placement_department_memberships"),
+		Resources:               resourceSet("staff_audit", "accounts", "profiles", "students", "student_department_memberships", "current_student_affiliations", "student_batch_affiliations", "mentor_batch_assignments", "role_assignments", "placement_department_memberships"),
 	},
 	"question-bank": {
 		Audience: "aether_qbank", ActionPrefix: "qbank", ResourcePrefix: "qbank", Global: true, StaffAuthoring: true,
@@ -263,6 +277,7 @@ func (service *Service) Authorize(contextValue context.Context, request Request)
 			matchingScopes = append(matchingScopes, Scope{Kind: assignment.ScopeKind, ID: assignment.ScopeID})
 		}
 	}
+	service.auditStaffWrite(contextValue, validated, snapshot.Assignments, len(matchingScopes) > 0)
 	if len(matchingScopes) == 0 {
 		return decision, nil
 	}
@@ -383,6 +398,11 @@ func assignmentApplies(
 			// (ADR-0020); mentors and students stay excluded.
 			return assignment.Role == centralauthz.RoleCollegeAdmin || assignment.Role == centralauthz.RoleDepartmentUser
 		}
+		// The audit log of staff actions is for college administrators only
+		// (ADR-0043), however broad a department's policy is.
+		if request.ResourceType == "staff_audit" && assignment.Role != centralauthz.RoleCollegeAdmin {
+			return false
+		}
 		return request.TenantID != "" && assignment.TenantID == request.TenantID
 	case "placement_department":
 		if (request.ResourceType != "students" && request.ResourceType != "student_batch_affiliations") || request.TenantID == "" {
@@ -460,4 +480,26 @@ func uniqueScopes(scopes []Scope) []Scope {
 		}
 	}
 	return unique
+}
+
+// auditStaffWrite records a write decision for anyone holding a staff role
+// (ADR-0043). Students' own writes are not staff actions. Recording is best
+// effort: an audit failure is logged, never turned into a denied exam action.
+func (service *Service) auditStaffWrite(contextValue context.Context, request Request, assignments []Assignment, allowed bool) {
+	if request.Action != "write" {
+		return
+	}
+	staff := false
+	for _, assignment := range assignments {
+		staff = staff || assignment.ScopeKind != "self"
+	}
+	if !staff {
+		return
+	}
+	if err := service.store.RecordStaffAction(contextValue, StaffAction{
+		PrincipalID: request.PrincipalID, TenantID: request.TenantID, TargetService: request.TargetService,
+		ResourceType: request.ResourceType, ResourceID: request.ResourceID, Allowed: allowed,
+	}); err != nil {
+		slog.Warn("record staff action", "error", err, "principal_id", request.PrincipalID)
+	}
 }

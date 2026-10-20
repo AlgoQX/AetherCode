@@ -207,3 +207,18 @@ func (service *Service) RegradeItem(contextValue context.Context, capability cen
 	})
 	return result, err
 }
+
+// GetGradingQueue is the college's grading queue for staff (ADR-0043).
+func (service *Service) GetGradingQueue(contextValue context.Context, capability centralauthz.Capability, tenantID string) (json.RawMessage, error) {
+	tenantID = normalizeUUID(tenantID)
+	if !isUUID(tenantID) {
+		return nil, apperrors.New(apperrors.CodeInvalidArgument, "tenant ID must be a UUID")
+	}
+	var queue json.RawMessage
+	err := service.inTenant(contextValue, capability, func(transaction pgx.Tx) error {
+		var storeErr error
+		queue, storeErr = service.store.GetGradingQueue(contextValue, transaction, tenantID)
+		return storeErr
+	})
+	return queue, err
+}
