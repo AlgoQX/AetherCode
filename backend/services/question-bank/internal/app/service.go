@@ -53,6 +53,13 @@ type Store interface {
 	SetQuestionVersionChoices(context.Context, pgx.Tx, SetQuestionVersionChoices) (QuestionVersion, error)
 	StartModelCheck(context.Context, pgx.Tx, string, StartModelCheck, BundleReference) (json.RawMessage, error)
 	ListModelChecks(context.Context, pgx.Tx, string) (json.RawMessage, error)
+	SetQuestionAudience(context.Context, pgx.Tx, string, string) error
+	ListPracticeQuestions(context.Context, pgx.Tx) (json.RawMessage, error)
+	GetPracticeQuestion(context.Context, pgx.Tx, string) (json.RawMessage, error)
+	StartPractice(context.Context, pgx.Tx, string, StartPractice, BundleReference) (json.RawMessage, error)
+	ListPracticeSubmissions(context.Context, pgx.Tx, string) (json.RawMessage, error)
+	GetPracticeSubmission(context.Context, pgx.Tx, string) (json.RawMessage, error)
+	GetPracticeProgress(context.Context, pgx.Tx) (json.RawMessage, error)
 	ExportQuestionVersion(context.Context, pgx.Tx, string, string) (StoredExport, error)
 	ClaimIdempotency(context.Context, pgx.Tx, IdempotencyClaim) (json.RawMessage, bool, error)
 	CompleteIdempotency(context.Context, pgx.Tx, IdempotencyClaim, int, json.RawMessage) error
@@ -124,6 +131,7 @@ type Question struct {
 	CreatedAt      time.Time  `json:"created_at"`
 	ArchivedAt     *time.Time `json:"archived_at,omitempty"`
 	Version        int64      `json:"version"`
+	Audience       string     `json:"audience,omitempty"`
 }
 
 // QuestionVersion is intentionally metadata-only. Encrypted object keys,
@@ -153,6 +161,8 @@ type QuestionVersion struct {
 	Choices        []string `json:"choices"`
 	CorrectChoices []int    `json:"correct_choices"`
 	MultipleChoice bool     `json:"multiple_choice"`
+	// Audience is the question's: "test" or "practice" (ADR-0041).
+	Audience string `json:"audience,omitempty"`
 }
 
 type QuestionDetail struct {

@@ -2,11 +2,7 @@ package app
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"io"
 
 	centralauthz "github.com/aethercode/aethercode/libs/pkg/authz"
 	"github.com/aethercode/aethercode/libs/pkg/database"
@@ -120,25 +116,9 @@ func markSamples(all, samples []evalbundle.TestCase) []ExportTest {
 
 // readBundle fetches, verifies, decrypts and parses one test bundle.
 func (service *Service) readBundle(contextValue context.Context, reference BundleReference) (evalbundle.Bundle, error) {
-	object, _, err := service.storage.Get(contextValue, reference.ObjectKey)
+	plaintext, err := service.readSealed(contextValue, reference, maxBundleBytes)
 	if err != nil {
-		return evalbundle.Bundle{}, fmt.Errorf("fetch test bundle: %w", err)
-	}
-	defer func() { _ = object.Close() }()
-	ciphertext, err := io.ReadAll(io.LimitReader(object, maxBundleBytes+1))
-	if err != nil {
-		return evalbundle.Bundle{}, fmt.Errorf("read test bundle: %w", err)
-	}
-	if len(ciphertext) > maxBundleBytes {
-		return evalbundle.Bundle{}, fmt.Errorf("test bundle exceeds %d bytes", maxBundleBytes)
-	}
-	digest := sha256.Sum256(ciphertext)
-	if hex.EncodeToString(digest[:]) != reference.Checksum {
-		return evalbundle.Bundle{}, fmt.Errorf("test bundle does not match its checksum")
-	}
-	plaintext, err := service.kms.Decrypt(contextValue, ciphertext, reference.EncryptionKeyReference)
-	if err != nil {
-		return evalbundle.Bundle{}, fmt.Errorf("decrypt test bundle: %w", err)
+		return evalbundle.Bundle{}, err
 	}
 	return evalbundle.Parse(plaintext)
 }

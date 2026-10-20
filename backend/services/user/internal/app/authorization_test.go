@@ -411,3 +411,54 @@ func TestOnlyCollegeAdministratorsExportQuestions(t *testing.T) {
 		}
 	}
 }
+
+// ADR-0041: a student practises with a tenant-scoped capability for the bearer
+// subject only; the question bank's other resources stay tenant-less.
+func TestStudentsPractiseOnlyAsThemselvesWithTheirTenant(t *testing.T) {
+	t.Parallel()
+	keyring, err := centralauthz.ParseKeyring(`[{"audience":"aether_qbank","key_id":"` + testKeyID + `","secret_base64":"` + base64.StdEncoding.EncodeToString([]byte(strings.Repeat("q", 32))) + `"}]`)
+	if err != nil {
+		t.Fatalf("ParseKeyring() error = %v", err)
+	}
+	student := Assignment{Role: centralauthz.RoleStudent, ScopeKind: "self", TenantID: testTenant, ScopeID: testPrincipal}
+	service, err := NewService(fakeStore{snapshot: Snapshot{
+		Revision:    3,
+		Assignments: []Assignment{student},
+		PolicyRules: []centralauthz.PolicyRule{{PType: "p", Values: []string{"student", "self", "/practice_submissions/:id", "write"}}},
+	}}, keyring, nil, false)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	now := time.Date(2026, time.October, 20, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	request := Request{PrincipalID: testPrincipal, TenantID: testTenant, RequestID: testRequestID,
+		Action: "write", ResourceType: "practice_submissions", ResourceID: testPrincipal, TargetService: "question-bank"}
+
+	decision, err := service.Authorize(context.Background(), request)
+	if err != nil || !decision.Allowed {
+		t.Fatalf("Authorize(own practice) = %#v, %v; want allowed", decision, err)
+	}
+	capability, err := centralauthz.DecodeCapability(decision.Capability, now.Add(time.Second))
+	if err != nil {
+		t.Fatalf("DecodeCapability() error = %v", err)
+	}
+	if capability.Audience != "aether_qbank" || capability.TenantID != testTenant || capability.Resource != "qbank.practice_submissions" {
+		t.Fatalf("capability = %#v, want a tenant-scoped qbank practice capability", capability)
+	}
+
+	other := request
+	other.ResourceID = "018f4b0d-08f8-7c09-9ba7-efdf9c229999"
+	if decision, err := service.Authorize(context.Background(), other); err != nil || decision.Allowed {
+		t.Fatalf("Authorize(another student's practice) = %#v, %v; want denied", decision, err)
+	}
+	tenantless := request
+	tenantless.TenantID = ""
+	if _, err := service.Authorize(context.Background(), tenantless); err == nil {
+		t.Fatal("Authorize(practice without a tenant) succeeded, want a validation error")
+	}
+	questions := request
+	questions.ResourceType = "questions"
+	if _, err := service.Authorize(context.Background(), questions); err == nil {
+		t.Fatal("Authorize(questions with a tenant) succeeded, want a validation error")
+	}
+}

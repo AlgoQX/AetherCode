@@ -126,7 +126,10 @@ type route struct {
 	StaffAuthoring          bool
 	GlobalResources         map[string]struct{}
 	OptionalTenantResources map[string]struct{}
-	Resources               map[string]struct{}
+	// TenantResources on a Global route need a tenant: they belong to one
+	// college's student, not to the global catalogue (ADR-0041).
+	TenantResources map[string]struct{}
+	Resources       map[string]struct{}
 }
 
 var routes = map[string]route{
@@ -142,7 +145,8 @@ var routes = map[string]route{
 	},
 	"question-bank": {
 		Audience: "aether_qbank", ActionPrefix: "qbank", ResourcePrefix: "qbank", Global: true, StaffAuthoring: true,
-		Resources: resourceSet("questions", "question_versions", "test_case_manifests", "question_assets", "tags", "question_version_tags", "question_exports"),
+		Resources:       resourceSet("questions", "question_versions", "test_case_manifests", "question_assets", "tags", "question_version_tags", "question_exports", "practice_submissions"),
+		TenantResources: resourceSet("practice_submissions"),
 	},
 	"assessment": {
 		Audience: "aether_assessment", ActionPrefix: "assessment", ResourcePrefix: "assessment",
@@ -320,7 +324,11 @@ func validateRequest(request Request) (Request, route, error) {
 	if _, found := targetRoute.Resources[request.ResourceType]; !found {
 		return Request{}, route{}, &ValidationError{Field: "resource_type", Reason: "is not protected by the target service authorization contract"}
 	}
-	if targetRoute.Global || hasResource(targetRoute.GlobalResources, request.ResourceType) {
+	if hasResource(targetRoute.TenantResources, request.ResourceType) {
+		if !uuidPattern.MatchString(request.TenantID) {
+			return Request{}, route{}, &ValidationError{Field: "tenant_id", Reason: "must be a UUID"}
+		}
+	} else if targetRoute.Global || hasResource(targetRoute.GlobalResources, request.ResourceType) {
 		if request.TenantID != "" {
 			return Request{}, route{}, &ValidationError{Field: "tenant_id", Reason: "must be empty for this global resource"}
 		}
@@ -414,6 +422,10 @@ func assignmentApplies(
 			// bind reads/writes to authz.current_context_actor_id() locally. This
 			// prevents a self policy from becoming access to another recipient's
 			// opaque notification ID.
+			return request.ResourceID == assignment.ScopeID
+		case "practice_submissions":
+			// Practice routes authorize with the bearer subject; Question Bank
+			// binds every practice row to the signed actor (ADR-0041).
 			return request.ResourceID == assignment.ScopeID
 		case "validation_events":
 			// SEB uses the bearer subject as the authorization resource and its

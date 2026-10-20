@@ -226,6 +226,7 @@ func run(contextValue context.Context) error {
 		return err
 	}
 	if modelCheckRunner != nil {
+		modelCheckRunner.ReadOutputsWith(storageClient, kmsClient)
 		questionBank.UseModelChecks(modelCheckRunner)
 		go modelCheckRunner.Run(contextValue)
 	}

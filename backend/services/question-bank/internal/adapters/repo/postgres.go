@@ -517,3 +517,57 @@ func (repository *Postgres) SetQuestionVersionChoices(contextValue context.Conte
 	}
 	return decodeQuestionVersion(raw)
 }
+
+// callJSON runs one practice function that returns jsonb. Those functions
+// raise 55000 and 22023 only with messages written for the student, such as
+// "wait for your last run to finish", so those pass through.
+func callJSON(contextValue context.Context, transaction pgx.Tx, operation, query string, arguments ...any) (json.RawMessage, error) {
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, query, arguments...).Scan(&raw); err != nil {
+		var postgresError *pgconn.PgError
+		if errors.As(err, &postgresError) {
+			switch postgresError.Code {
+			case "55000":
+				return nil, apperrors.New(apperrors.CodeConflict, postgresError.Message)
+			case "22023":
+				return nil, apperrors.New(apperrors.CodeInvalidArgument, postgresError.Message)
+			}
+		}
+		return nil, mapCommandError(err, operation)
+	}
+	return raw, nil
+}
+
+func (repository *Postgres) SetQuestionAudience(contextValue context.Context, transaction pgx.Tx, questionID, audience string) error {
+	var stored string
+	if err := transaction.QueryRow(contextValue, `SELECT qbank.set_question_audience($1, $2)`, questionID, audience).Scan(&stored); err != nil {
+		return mapCommandError(err, "set question audience")
+	}
+	return nil
+}
+
+func (repository *Postgres) ListPracticeQuestions(contextValue context.Context, transaction pgx.Tx) (json.RawMessage, error) {
+	return callJSON(contextValue, transaction, "list practice questions", `SELECT qbank.list_practice_questions()`)
+}
+
+func (repository *Postgres) GetPracticeQuestion(contextValue context.Context, transaction pgx.Tx, questionID string) (json.RawMessage, error) {
+	return callJSON(contextValue, transaction, "get practice question", `SELECT qbank.get_practice_question($1)`, questionID)
+}
+
+func (repository *Postgres) StartPractice(contextValue context.Context, transaction pgx.Tx, id string, command app.StartPractice, source app.BundleReference) (json.RawMessage, error) {
+	return callJSON(contextValue, transaction, "start practice run", `SELECT qbank.start_practice_submission($1, $2, $3, $4, $5, $6, $7, $8)`,
+		id, command.QuestionID, command.Language, command.Mode, command.Input != nil,
+		source.ObjectKey, source.Checksum, source.EncryptionKeyReference)
+}
+
+func (repository *Postgres) ListPracticeSubmissions(contextValue context.Context, transaction pgx.Tx, questionID string) (json.RawMessage, error) {
+	return callJSON(contextValue, transaction, "list practice runs", `SELECT qbank.list_practice_submissions($1)`, questionID)
+}
+
+func (repository *Postgres) GetPracticeSubmission(contextValue context.Context, transaction pgx.Tx, id string) (json.RawMessage, error) {
+	return callJSON(contextValue, transaction, "get practice run", `SELECT qbank.get_practice_submission($1)`, id)
+}
+
+func (repository *Postgres) GetPracticeProgress(contextValue context.Context, transaction pgx.Tx) (json.RawMessage, error) {
+	return callJSON(contextValue, transaction, "get practice progress", `SELECT qbank.get_practice_progress()`)
+}

@@ -24,9 +24,12 @@ type ModelCheckRunner interface {
 	Fail(context.Context, string) error
 }
 
-// ModelCheckJob is what Judge needs to run a check.
+// ModelCheckJob is what Judge needs to run a check or a practice run.
 type ModelCheckJob struct {
-	ID             string
+	ID string
+	// FairnessKey groups the job in Judge's admission limiter; empty means
+	// model checks.
+	FairnessKey    string
 	Language       string
 	Bundle         BundleReference
 	Source         BundleReference

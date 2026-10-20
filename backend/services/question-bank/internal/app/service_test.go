@@ -353,6 +353,34 @@ func (s *panicStore) SetQuestionVersionChoices(context.Context, pgx.Tx, SetQuest
 	panic("unexpected store call")
 }
 
+func (s *panicStore) SetQuestionAudience(context.Context, pgx.Tx, string, string) error {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) ListPracticeQuestions(context.Context, pgx.Tx) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) GetPracticeQuestion(context.Context, pgx.Tx, string) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) StartPractice(context.Context, pgx.Tx, string, StartPractice, BundleReference) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) ListPracticeSubmissions(context.Context, pgx.Tx, string) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) GetPracticeSubmission(context.Context, pgx.Tx, string) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
+func (s *panicStore) GetPracticeProgress(context.Context, pgx.Tx) (json.RawMessage, error) {
+	panic("unexpected store call")
+}
+
 func (s *panicStore) Ping(context.Context) error {
 	panic("store method called before validation")
 }

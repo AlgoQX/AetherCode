@@ -1,13 +1,17 @@
 // Package judge makes Question Bank a Judge client for model-solution checks
-// (ADR-0033). It submits a check as an execution job under its own mTLS
-// identity, so Judge returns to it only its own completions, and records each
-// completion's per-test verdicts through the projection worker role.
+// (ADR-0033) and practice runs (ADR-0041). It submits each as an execution job
+// under its own mTLS identity, so Judge returns to it only its own
+// completions, and records each completion's per-test verdicts, with a sample
+// run's output, through the projection worker role.
 package judge
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -15,6 +19,9 @@ import (
 	"time"
 
 	"github.com/aethercode/aethercode/libs/pkg/config"
+	"github.com/aethercode/aethercode/libs/pkg/evalbundle"
+	"github.com/aethercode/aethercode/libs/pkg/kms"
+	"github.com/aethercode/aethercode/libs/pkg/storage"
 	judgev1 "github.com/aethercode/aethercode/libs/proto/gen/go/aethercode/judge/v1"
 	"github.com/aethercode/aethercode/services/question-bank/internal/app"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,6 +43,8 @@ const (
 	// fairnessKey groups model checks in Judge's fair scheduling.
 	fairnessKey = "question-bank:model-checks"
 	jobLifetime = time.Hour
+	// maxOutputCiphertextBytes bounds one unit's encrypted output object.
+	maxOutputCiphertextBytes = 4 << 20
 )
 
 // Runtime is the Judge endpoint and the client identity. An empty address
@@ -88,16 +97,20 @@ func firstSet(keys ...string) string {
 	return ""
 }
 
-// ModelChecks submits checks to Judge and records their outcomes.
+// ModelChecks submits checks and practice runs to Judge and records their
+// outcomes.
 type ModelChecks struct {
 	client  judgev1.JudgeServiceClient
 	workers *pgxpool.Pool
 	runtime Runtime
 	logger  *slog.Logger
+	// storage and keys read a sample run's per-test output.
+	storage storage.Object
+	keys    kms.KeyManager
 }
 
 // New dials Judge lazily; workers is the projection worker pool, which may
-// only finish model checks.
+// only finish model checks and practice runs.
 func New(runtime Runtime, workers *pgxpool.Pool, logger *slog.Logger) (*ModelChecks, *grpc.ClientConn, error) {
 	tlsConfig, err := config.LoadMTLSClientConfig(runtime.CertFile, runtime.KeyFile, runtime.CAFile, runtime.ServerName)
 	if err != nil {
@@ -116,9 +129,13 @@ func (checks *ModelChecks) Submit(contextValue context.Context, check app.ModelC
 	cpuTimeMS := min(check.TimeLimitMS, maxCPUTimeMS)
 	callContext, cancel := context.WithTimeout(contextValue, rpcTimeout)
 	defer cancel()
+	key := check.FairnessKey
+	if key == "" {
+		key = fairnessKey
+	}
 	_, err := checks.client.SubmitExecution(callContext, &judgev1.SubmitExecutionRequest{
 		IdempotencyKey:               check.ID,
-		TenantFairnessKey:            fairnessKey,
+		TenantFairnessKey:            key,
 		SubmissionCorrelationId:      check.ID,
 		EvaluationBundleRef:          check.Bundle.ObjectKey,
 		EvaluationBundleSha256:       check.Bundle.Checksum,
@@ -141,17 +158,44 @@ func (checks *ModelChecks) Submit(contextValue context.Context, check app.ModelC
 	return nil
 }
 
-// Fail marks a check Judge never accepted.
+// ReadOutputsWith lets the worker decrypt a sample run's per-test output.
+func (checks *ModelChecks) ReadOutputsWith(objects storage.Object, keys kms.KeyManager) {
+	checks.storage, checks.keys = objects, keys
+}
+
+// Fail marks a check or practice run Judge never accepted.
 func (checks *ModelChecks) Fail(contextValue context.Context, id string) error {
-	_, err := checks.workers.Exec(contextValue, `SELECT qbank.finish_model_check($1, 'failed', 'internal_error', '[]'::jsonb)`, id)
-	return err
+	return checks.finish(contextValue, id, "failed", "internal_error", "[]")
+}
+
+// finish records a job's outcome on the model check or practice run it
+// belongs to; an id that is neither is still acknowledged.
+func (checks *ModelChecks) finish(contextValue context.Context, id, state, verdict, units string) error {
+	for _, function := range []string{"finish_model_check", "finish_practice_submission"} {
+		var found bool
+		if err := checks.workers.QueryRow(contextValue, `SELECT qbank.`+function+`($1, $2, $3, $4::jsonb)`,
+			id, state, verdict, units).Scan(&found); err != nil {
+			return fmt.Errorf("record %s: %w", function, err)
+		}
+		if found {
+			return nil
+		}
+	}
+	checks.logger.Warn("judge completion for an unknown job", "correlation_id", id)
+	return nil
 }
 
 type unitOutcome struct {
-	UnitNumber uint32  `json:"unit_number"`
-	Verdict    string  `json:"verdict"`
-	Weight     uint32  `json:"weight"`
-	TimeMS     *uint32 `json:"time_ms,omitempty"`
+	UnitNumber    uint32  `json:"unit_number"`
+	Verdict       string  `json:"verdict"`
+	Weight        uint32  `json:"weight"`
+	TimeMS        *uint32 `json:"time_ms,omitempty"`
+	MemoryKiB     *uint32 `json:"memory_kib,omitempty"`
+	Stdin         *string `json:"stdin,omitempty"`
+	Expected      *string `json:"expected_output,omitempty"`
+	Stdout        *string `json:"stdout,omitempty"`
+	Stderr        *string `json:"stderr,omitempty"`
+	CompileOutput *string `json:"compile_output,omitempty"`
 }
 
 // Run pulls this client's completions until the context ends.
@@ -182,18 +226,32 @@ func (checks *ModelChecks) pullOnce(contextValue context.Context) error {
 	for _, completion := range response.GetCompletions() {
 		units := make([]unitOutcome, 0, len(completion.GetUnitResults()))
 		for _, unit := range completion.GetUnitResults() {
-			units = append(units, unitOutcome{
+			outcome := unitOutcome{
 				UnitNumber: unit.GetUnitNumber(), Verdict: verdictName(unit.GetVerdictCode()),
-				Weight: unit.GetWeight(), TimeMS: unit.ExecutionTimeMs,
-			})
+				Weight: unit.GetWeight(), TimeMS: unit.ExecutionTimeMs, MemoryKiB: unit.MemoryKib,
+			}
+			// Only a sample bundle's units carry output (ADR-0041).
+			if unit.GetResultRef() != "" {
+				// An unreadable output must not block the queue: the verdict
+				// still counts, without the output.
+				output, err := checks.readOutput(contextValue, unit)
+				if err != nil {
+					checks.logger.Warn("practice run output", "correlation_id", completion.GetSubmissionCorrelationId(), "error", err)
+					units = append(units, outcome)
+					continue
+				}
+				outcome.Stdin, outcome.Expected, outcome.Stdout = &output.Stdin, &output.ExpectedOutput, &output.Stdout
+				outcome.Stderr, outcome.CompileOutput = &output.Stderr, &output.CompileOutput
+			}
+			units = append(units, outcome)
 		}
 		encoded, err := json.Marshal(units)
 		if err != nil {
 			return err
 		}
-		if _, err := checks.workers.Exec(contextValue, `SELECT qbank.finish_model_check($1, 'completed', $2, $3::jsonb)`,
-			completion.GetSubmissionCorrelationId(), verdictName(completion.GetVerdictCode()), string(encoded)); err != nil {
-			return fmt.Errorf("record model check: %w", err)
+		if err := checks.finish(contextValue, completion.GetSubmissionCorrelationId(), "completed",
+			verdictName(completion.GetVerdictCode()), string(encoded)); err != nil {
+			return err
 		}
 		ackContext, ackCancel := context.WithTimeout(contextValue, rpcTimeout)
 		_, err = checks.client.AcknowledgeCompletion(ackContext, &judgev1.AcknowledgeCompletionRequest{
@@ -206,6 +264,31 @@ func (checks *ModelChecks) pullOnce(contextValue context.Context) error {
 		}
 	}
 	return nil
+}
+
+// readOutput fetches, verifies and decrypts one unit's output object.
+func (checks *ModelChecks) readOutput(contextValue context.Context, unit *judgev1.UnitResult) (evalbundle.UnitOutput, error) {
+	if checks.storage == nil || checks.keys == nil {
+		return evalbundle.UnitOutput{}, fmt.Errorf("run output cannot be read: storage is not configured")
+	}
+	object, _, err := checks.storage.Get(contextValue, unit.GetResultRef())
+	if err != nil {
+		return evalbundle.UnitOutput{}, fmt.Errorf("fetch run output: %w", err)
+	}
+	defer func() { _ = object.Close() }()
+	ciphertext, err := io.ReadAll(io.LimitReader(object, maxOutputCiphertextBytes+1))
+	if err != nil {
+		return evalbundle.UnitOutput{}, fmt.Errorf("read run output: %w", err)
+	}
+	digest := sha256.Sum256(ciphertext)
+	if len(ciphertext) > maxOutputCiphertextBytes || hex.EncodeToString(digest[:]) != unit.GetResultSha256() {
+		return evalbundle.UnitOutput{}, fmt.Errorf("run output object is too large or does not match its checksum")
+	}
+	plaintext, err := checks.keys.Decrypt(contextValue, ciphertext, unit.GetResultEncryptionKeyReference())
+	if err != nil {
+		return evalbundle.UnitOutput{}, fmt.Errorf("decrypt run output: %w", err)
+	}
+	return evalbundle.ParseUnitOutput(plaintext)
 }
 
 // verdictName is Judge's verdict in the platform's vocabulary.
