@@ -69,9 +69,13 @@ export default async function PreviewPage({ params }: { params: Promise<{ examId
           <h2 className="display mt-1.5 text-[1.75rem] text-ink">{question.title}</h2>
           <p className="mt-3 flex flex-wrap gap-2 text-[13px] text-ink-muted">
             <span className="rounded-full bg-brand-soft px-2.5 py-0.5 font-medium text-brand-soft-ink">{formatScoreText(Number(items[index]!.maximum_score))} marks</span>
-            <span className="rounded-full bg-hover px-2.5 py-0.5">Time limit {question.time_limit_ms / 1000} s</span>
-            <span className="rounded-full bg-hover px-2.5 py-0.5">Memory {Math.round(question.memory_limit_kib / 1024)} MB</span>
-            <span className="rounded-full bg-hover px-2.5 py-0.5">{question.supported_languages.map(languageName).join(", ")}</span>
+            {question.kind !== "mcq" && (
+              <>
+                <span className="rounded-full bg-hover px-2.5 py-0.5">Time limit {question.time_limit_ms / 1000} s</span>
+                <span className="rounded-full bg-hover px-2.5 py-0.5">Memory {Math.round(question.memory_limit_kib / 1024)} MB</span>
+                <span className="rounded-full bg-hover px-2.5 py-0.5">{question.supported_languages.map(languageName).join(", ")}</span>
+              </>
+            )}
             {items[index]!.pool && (
               <span className="rounded-full bg-warning-soft px-2.5 py-0.5 text-warning">
                 {items[index]!.pool!.title}: each student gets {items[index]!.pool!.draw} of {items[index]!.pool!.of}
@@ -79,9 +83,22 @@ export default async function PreviewPage({ params }: { params: Promise<{ examId
             )}
           </p>
           <Markdown className="mt-6">{question.prompt_markdown}</Markdown>
-          <p className="mt-4 text-[13px] text-ink-subtle">
-            {question.sample_test_case_count} sample test{question.sample_test_case_count === 1 ? "" : "s"} shown to students on Run, {question.hidden_test_case_count} hidden.
-          </p>
+          {question.kind === "mcq" ? (
+            <ol className="mt-4 space-y-1.5 text-sm">
+              {(question.choices ?? []).map((option, optionIndex) => (
+                <li key={optionIndex} className="rounded-[var(--radius-control)] border border-line px-3 py-2 text-ink">
+                  {String.fromCharCode(65 + optionIndex)}. {option}
+                </li>
+              ))}
+              <li className="text-[13px] text-ink-subtle">
+                {question.multiple_choice ? "Students choose every correct option." : "Students choose one option."} Each student sees them in a shuffled order.
+              </li>
+            </ol>
+          ) : (
+            <p className="mt-4 text-[13px] text-ink-subtle">
+              {question.sample_test_case_count} sample test{question.sample_test_case_count === 1 ? "" : "s"} shown to students on Run, {question.hidden_test_case_count} hidden.
+            </p>
+          )}
         </article>
       ))}
     </div>

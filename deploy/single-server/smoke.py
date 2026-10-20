@@ -189,7 +189,7 @@ _, policy_version, _ = call("POST", f"/assessment/v1/tenants/{tenant}/proctor-po
 call("POST", f"/assessment/v1/tenants/{tenant}/proctor-policy-versions/{policy_version['id']}/publish", {}, token=faculty, expect=200)
 iso = lambda seconds: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(seconds))
 
-def publish_exam(title, duration_seconds, check_unknown_question=False, target=None):
+def publish_exam(title, duration_seconds, check_unknown_question=False, target=None, question_version=None):
     """Publishes a one-question exam opening in 20 s, assigns it to the batch,
     and returns (opens_at epoch, exam version, item, the student's assignment)."""
     _, exam, _ = call("POST", f"/assessment/v1/tenants/{tenant}/exams", {"external_reference": f"{title}-{run}"}, token=faculty, expect=201)
@@ -208,8 +208,9 @@ def publish_exam(title, duration_seconds, check_unknown_question=False, target=N
         assert status == 404, status
         ok("an unknown or unpublished question cannot be added to an exam")
     _, item, _ = call("POST", f"{versions_path}/sections/{section['id']}/items", {"expected_content_version": content(), "position": 1,
-                      "question_version_id": version_id, "maximum_score": "10"}, token=faculty, expect=201)
-    assert item["question_version_id"] == version_id and len(item["evaluation_bundle_checksum"]) == 64, item
+                      "question_version_id": question_version or version_id, "maximum_score": "10"}, token=faculty, expect=201)
+    if question_version is None:
+        assert item["question_version_id"] == version_id and len(item["evaluation_bundle_checksum"]) == 64, item
     call("POST", f"{versions_path}/publish", {"expected_content_version": content()}, token=faculty, expect=200)
     target_type, target_id = target or ("batch", batch["id"])
     call("POST", f"{versions_path}/assignment-rules", {"target_type": target_type, "target_id": target_id,
@@ -375,6 +376,30 @@ assert moved == 600 and [n["body"] for n in live["announcements"]] == ["Question
 call("PUT", f"{attempts}/{running['id']}/answers/{ops_item['id']}",
      {"language": "python3", "source": source, "expected_attempt_version": running["version"]}, token=student, expect=201)
 ok("extra time moves the open attempt's deadline, announcements reach it, and saving still works")
+# Multiple choice (ADR-0035): authored, assigned, answered and graded with no Judge work.
+mcq_body = dict(question_body, slug=f"mcq-{run}", title="Binary search", prompt_markdown="Binary search runs in?", supported_languages=[])
+_, mcq, _ = call("POST", "/question-bank/v1/questions", mcq_body, token=faculty, expect=201)
+mcq_version = mcq["question_version"]
+_, mcq_version, _ = call("PUT", f"/question-bank/v1/question-versions/{mcq_version['id']}/choices",
+                         {"expected_question_version": mcq_version["version"], "choices": ["O(n)", "O(log n)", "O(1)"],
+                          "correct_choices": [1], "multiple_choice": False}, token=faculty, expect=200)
+call("POST", f"/question-bank/v1/question-versions/{mcq_version['id']}/publish",
+     {"expected_question_version": mcq_version["version"]}, token=faculty, expect=200)
+opens, mcq_exam, mcq_item, mcq_assignment = publish_exam("Choice smoke test", 3600, question_version=mcq_version["id"])
+time.sleep(max(0, opens + 2 - time.time()))
+_, choice_attempt, _ = call("POST", attempts, {"candidate_assignment_id": mcq_assignment["id"]}, token=student, expect=201)
+_, choice_paper, _ = call("GET", f"{attempts}/{choice_attempt['id']}/paper", token=student, expect=200)
+assert choice_paper["items"][0]["kind"] == "mcq" and "correct_choices" not in json.dumps(choice_paper), choice_paper
+status, _, _ = call("PUT", f"{attempts}/{choice_attempt['id']}/choices/{mcq_item['id']}", {"selected": [0, 1]}, token=student)
+assert status == 400, status
+call("PUT", f"{attempts}/{choice_attempt['id']}/choices/{mcq_item['id']}", {"selected": [1]}, token=student, expect=200)
+call("POST", f"{attempts}/{choice_attempt['id']}/submit", {"expected_attempt_version": choice_attempt["version"]}, token=student, expect=202)
+_, choice_attempt, _ = call("GET", f"{attempts}/{choice_attempt['id']}", token=student, expect=200)
+assert choice_attempt["lifecycle_state"] == "graded", choice_attempt
+_, choice_monitor, _ = call("GET", f"/submission/v1/tenants/{tenant}/exam-versions/{mcq_exam['id']}/monitor", token=faculty, expect=200)
+choice_row = [c for c in choice_monitor["candidates"] if c["attempt_id"] == choice_attempt["id"]]
+assert choice_row and float(choice_row[0]["score"]) == 10.0 and float(choice_row[0]["maximum_score"]) == 10.0, choice_monitor
+ok("a multiple-choice question is answered, never shows its key, and is graded on hand-in")
 print("ALL M6 CHECKS PASSED")
 
 # --- M4: Safe Exam Browser ------------------------------------------------

@@ -15,3 +15,9 @@ storage references of its evaluation and sample bundles. Rollback drops both.
 question versions; the language must be allowed and at most three checks per
 version run at once), `list_model_checks` and `finish_model_check` for the
 Judge completion worker. Rollback drops them.
+
+`000017_mcq` adds multiple-choice versions (ADR-0035): `kind`, `choices`,
+`correct_choices` and `multiple_choice`, `set_question_version_choices`,
+publication rules per kind (the language and bundle constraints apply to
+coding versions only), and the resolve function's new columns. Rollback
+refuses while mcq versions or language-less versions exist.

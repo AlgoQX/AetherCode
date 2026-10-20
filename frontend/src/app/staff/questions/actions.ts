@@ -24,7 +24,10 @@ function versionContent(form: FormData) {
 export async function createQuestion(_previous: ActionState, form: FormData): Promise<ActionState> {
   await requireStaff();
   const content = versionContent(form);
-  if (content.supported_languages.length === 0) return { error: "Choose at least one language." };
+  // A multiple-choice question has no languages (ADR-0035); its draft is
+  // recognised by that until its options are saved.
+  if (form.get("kind") === "mcq") content.supported_languages = [];
+  else if (content.supported_languages.length === 0) return { error: "Choose at least one language." };
   const slug =
     String(form.get("slug") ?? "").trim() ||
     content.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
@@ -174,4 +177,23 @@ export async function startModelCheck(_previous: ActionState, form: FormData): P
   }
   revalidatePath(`/staff/questions/${versionId}`);
   return { error: null, message: "Running on every test. Results appear below in a few seconds." };
+}
+
+/** Options and answer of a multiple-choice draft (ADR-0035). */
+export async function saveChoices(versionId: string, expectedVersion: number, choices: string[], correct: number[], multiple: boolean): Promise<ActionState> {
+  await requireStaff();
+  const options = choices.map((choice) => choice.trim());
+  if (options.length < 2 || options.some((option) => !option)) return { error: "Give at least two options, none empty." };
+  if (correct.length === 0) return { error: "Mark the correct answer." };
+  if (!multiple && correct.length > 1) return { error: "A single-answer question has one correct option." };
+  try {
+    await gateway<QuestionVersion>(`/question-bank/v1/question-versions/${versionId}/choices`, {
+      method: "PUT",
+      body: { expected_question_version: expectedVersion, choices: options, correct_choices: correct, multiple_choice: multiple },
+    });
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+  revalidatePath(`/staff/questions/${versionId}`);
+  return { error: null, message: "Options saved." };
 }

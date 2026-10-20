@@ -67,8 +67,9 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium text-ink">{version.title}</p>
                   <p className="mt-0.5 truncate text-[13px] text-ink-muted">
-                    {question.slug}, {version.supported_languages.map(languageName).join(", ")}, {version.sample_test_case_count} sample and{" "}
-                    {version.hidden_test_case_count} hidden tests
+                    {version.kind === "mcq"
+                      ? `${question.slug}, multiple choice, ${version.choices?.length ?? 0} options`
+                      : `${question.slug}, ${version.supported_languages.map(languageName).join(", ")}, ${version.sample_test_case_count} sample and ${version.hidden_test_case_count} hidden tests`}
                   </p>
                 </div>
                 <Badge tone={DIFFICULTY_TONE[version.difficulty]}>{version.difficulty}</Badge>

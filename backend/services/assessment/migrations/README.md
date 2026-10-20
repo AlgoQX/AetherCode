@@ -10,3 +10,8 @@ read capability.
 builders apply it, a nine-argument `add_exam_section` takes the draw count,
 publication checks pools, and `get_exam_version_content` returns it. Rollback
 restores the 000026 to 000028 functions and drops the column.
+
+`000030_mcq_items` adds multiple-choice exam items (ADR-0035): the item kind,
+options, key and multiple flag with a constraint per kind,
+`add_exam_mcq_item`, and both snapshot builders carrying them. Rollback
+refuses while mcq items exist and restores the 000029 builders.

@@ -599,6 +599,30 @@ paths:
             application/json:
               schema: { type: array, items: { type: object } }
         '403': { $ref: '#/components/responses/Problem403' }
+  /v1/tenants/{tenant_id}/attempts/{attempt_id}/choices/{exam_item_id}:
+    put:
+      summary: Save the caller's selection for a multiple-choice item (ADR-0035)
+      description: Indexes are the options' authored indexes from the paper; an empty list clears the answer.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+        - $ref: '#/components/parameters/ExamItemID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [selected]
+              properties:
+                selected: { type: array, maxItems: 10, items: { type: integer, minimum: 0 } }
+      responses:
+        '200': { description: The saved selection. }
+        '400': { $ref: '#/components/responses/Problem400' }
+        '409': { $ref: '#/components/responses/Problem409' }
 components:
   securitySchemes:
     bearerAuth:

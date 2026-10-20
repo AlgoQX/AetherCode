@@ -85,6 +85,11 @@ export type PaperItem = {
   memory_limit_kib: number;
   /** The candidate's latest saved answer, so a reload or a crashed browser resumes where it left off. */
   latest_answer: { language: string; source: string; revision_number: number } | null;
+  /** "coding" or "mcq" (ADR-0035). Options come in this student's order with their authored index. */
+  kind: "coding" | "mcq";
+  choices?: { index: number; text: string }[];
+  multiple_choice: boolean;
+  latest_choice: number[] | null;
 };
 
 /** PUT .../answers/{item}: one saved answer revision (metadata only). */
@@ -188,6 +193,11 @@ export type QuestionVersion = {
   version: number;
   sample_test_case_count: number;
   hidden_test_case_count: number;
+  /** "coding" or "mcq" (ADR-0035); authors see the answer key. */
+  kind: "coding" | "mcq";
+  choices: string[] | null;
+  correct_choices: number[] | null;
+  multiple_choice: boolean;
 };
 
 export type QuestionDetail = { question: { id: string; slug: string; lifecycle_state: string; version: number }; question_version: QuestionVersion };

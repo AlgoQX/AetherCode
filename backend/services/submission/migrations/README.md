@@ -109,3 +109,11 @@ the event log. Rollback drops it.
 staff with read on `judge_receipts`, every attempt's latest saved answer per
 question of one exam version, as storage references for the similarity
 report. Rollback drops it.
+
+`000031_mcq` adds multiple-choice answers (ADR-0035): projected item kind,
+options and key; `choice_answers` and `save_choice_answer`; a trigger that
+refuses code for mcq items; the paper's shuffled options and saved
+selection; all-or-nothing mcq scores in `attempt_item_scores`; hand-in and
+time-up counting selections as answers; and grading whose maximum is every
+item the candidate was given (`calculation_version` 4). Rollback refuses while
+mcq items exist.

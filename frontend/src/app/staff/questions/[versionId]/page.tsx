@@ -12,6 +12,7 @@ import { requireStaff } from "@/lib/server/staff";
 import { languageName } from "@/lib/utils";
 import { draftNewVersion, publishQuestion } from "../actions";
 import { ModelCheckPanel } from "./model-check";
+import { ChoicesEditor } from "./choices-editor";
 import { TestsEditor } from "./tests-editor";
 
 export const metadata: Metadata = { title: "Question" };
@@ -35,7 +36,9 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
     );
   }
   const draft = version.status === "draft";
-  const ready = version.sample_test_case_count > 0 && version.hidden_test_case_count > 0;
+  // A multiple-choice draft has no languages until its options are saved (ADR-0035).
+  const choice = version.kind === "mcq" || version.supported_languages.length === 0;
+  const ready = choice ? version.kind === "mcq" : version.sample_test_case_count > 0 && version.hidden_test_case_count > 0;
   return (
     <>
       <Link href="/staff/questions" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
@@ -49,7 +52,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
           <>
             <Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>
             {/* Exports carry the hidden tests: administrators only, and each is logged (ADR-0032). */}
-            {staff.canManageAccounts && version.hidden_test_case_count > 0 && (
+            {staff.canManageAccounts && version.kind !== "mcq" && version.hidden_test_case_count > 0 && (
               <Button asChild variant="secondary" size="sm">
                 <a href={`/api/question-bank/v1/question-versions/${version.id}/export`} download={`${version.title.replace(/[^A-Za-z0-9]+/g, "-")}.json`}>
                   <Download />
@@ -69,6 +72,17 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
         <div>
           {draft ? (
             <>
+              {choice ? (
+                <>
+                  <h2 className="mb-3 text-sm font-semibold text-ink">Options</h2>
+                  <ChoicesEditor
+                    versionId={version.id}
+                    expectedVersion={version.version}
+                    initial={{ choices: version.choices ?? [], correct: version.correct_choices ?? [], multiple: version.multiple_choice }}
+                  />
+                </>
+              ) : (
+              <>
               <h2 className="mb-3 text-sm font-semibold text-ink">
                 Tests{" "}
                 <span className="font-normal text-ink-muted">
@@ -76,7 +90,18 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
                 </span>
               </h2>
               <TestsEditor versionId={version.id} expectedVersion={version.version} existing={version.sample_test_case_count + version.hidden_test_case_count} />
-              <Section title="Publish" description={ready ? "Published questions cannot be edited; you can start a new draft version later." : "Save at least one sample and one hidden test first."}>
+              </>
+              )}
+              <Section
+                title="Publish"
+                description={
+                  ready
+                    ? "Published questions cannot be edited; you can start a new draft version later."
+                    : choice
+                      ? "Save the options and the correct answer first."
+                      : "Save at least one sample and one hidden test first."
+                }
+              >
                 {ready && (
                   <ActionForm action={publishQuestion} submitLabel="Publish question">
                     <input type="hidden" name="version_id" value={version.id} />
@@ -87,8 +112,21 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
             </>
           ) : (
             <Panel className="p-5">
+              {version.kind === "mcq" && (
+                <ol className="mb-4 space-y-1.5 text-sm">
+                  {(version.choices ?? []).map((option, index) => (
+                    <li key={index} className={version.correct_choices?.includes(index) ? "font-medium text-success" : "text-ink"}>
+                      {String.fromCharCode(65 + index)}. {option}
+                      {version.correct_choices?.includes(index) && " (correct)"}
+                    </li>
+                  ))}
+                </ol>
+              )}
               <p className="text-sm text-ink">
-                {version.sample_test_case_count} sample and {version.hidden_test_case_count} hidden tests. Add it to an exam from{" "}
+                {version.kind === "mcq"
+                  ? `${version.multiple_choice ? "Several" : "One"} correct option${version.multiple_choice ? "s" : ""}.`
+                  : `${version.sample_test_case_count} sample and ${version.hidden_test_case_count} hidden tests.`}{" "}
+                Add it to an exam from{" "}
                 <Link href="/staff/exams" className="text-brand hover:underline">
                   Exams
                 </Link>
@@ -101,7 +139,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
           )}
         </div>
       </div>
-      {ready && (
+      {ready && !choice && (
         <Section title="Check a model solution" description="Run a correct solution on every test before students do. A failing test usually means a wrong expected output.">
           <ModelCheckPanel versionId={version.id} languages={version.supported_languages} checks={checks} />
         </Section>

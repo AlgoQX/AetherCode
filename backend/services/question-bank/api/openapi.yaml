@@ -299,6 +299,34 @@ paths:
         '403': { description: Not an administrator. }
         '404': { description: No such question version. }
         '409': { description: The version has no tests yet. }
+  /v1/question-versions/{question_version_id}/choices:
+    put:
+      summary: Make a draft multiple-choice (ADR-0035)
+      description: 2 to 10 options, the indexes of the correct ones, and whether several may be chosen.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: question_version_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_question_version, choices, correct_choices, multiple_choice]
+              properties:
+                expected_question_version: { type: integer }
+                choices: { type: array, minItems: 2, maxItems: 10, items: { type: string } }
+                correct_choices: { type: array, minItems: 1, items: { type: integer, minimum: 0 } }
+                multiple_choice: { type: boolean }
+      responses:
+        '200': { description: The question version. }
+        '400': { description: Invalid options or answer. }
+        '409': { description: Stale revision or not a draft. }
 components:
   securitySchemes:
     BearerAuth:

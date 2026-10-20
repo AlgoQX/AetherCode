@@ -18,6 +18,7 @@ import { EditorSettingsMenu } from "./editor-settings-menu";
 import { EndTestDialog } from "./end-test-dialog";
 import { type QuestionStatus, QuestionRail, formatScore } from "./question-rail";
 import { RunConsole, type RunState, runSummary } from "./run-console";
+import { ChoicePane } from "./choice-pane";
 import { SubmissionsPanel } from "./submissions-panel";
 import { type SaveState, useAnswers } from "./use-answers";
 import { useLiveState } from "./use-live-state";
@@ -104,6 +105,10 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
   const [runs, setRuns] = useState<Record<string, RunState>>({});
   const [customRuns, setCustomRuns] = useState<Record<string, RunState>>({});
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  // Multiple-choice selections, saved one change at a time (ADR-0035).
+  const [selections, setSelections] = useState<Record<string, number[]>>(() =>
+    Object.fromEntries(items.filter((candidate) => candidate.kind === "mcq").map((candidate) => [candidate.exam_item_id, candidate.latest_choice ?? []])),
+  );
   const [useCustomInput, setUseCustomInput] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleTab, setConsoleTab] = useState<ConsoleTab>("results");
@@ -130,6 +135,10 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
   const statuses = useMemo(() => {
     const result: Record<string, QuestionStatus> = {};
     for (const candidate of items) {
+      if (candidate.kind === "mcq") {
+        result[candidate.exam_item_id] = (selections[candidate.exam_item_id]?.length ?? 0) > 0 ? { kind: "saved" } : { kind: "empty" };
+        continue;
+      }
       const list: ItemSubmission[] | undefined = submissions.byItem[candidate.exam_item_id];
       const best = bestScore(list);
       if (isJudging(list)) result[candidate.exam_item_id] = { kind: "judging", best, maximum: Number(candidate.maximum_score) };
@@ -140,7 +149,7 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
     return result;
     // answers.draft changes are reflected through the answer book's revision.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, submissions.byItem, answers, draft.source]);
+  }, [items, submissions.byItem, answers, draft.source, selections]);
 
   const finish = useCallback(() => {
     finished.current = true;
@@ -310,6 +319,16 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
           </section>
         )}
 
+        {item.kind === "mcq" ? (
+          <ChoicePane
+            key={currentId}
+            attemptPath={attemptPath}
+            item={item}
+            selected={selections[currentId] ?? []}
+            readOnly={readOnly || remaining === 0}
+            onSaved={(selected) => setSelections((all) => ({ ...all, [currentId]: selected }))}
+          />
+        ) : (
         <section
           aria-label="Your code"
           className="flex min-h-[460px] flex-1 flex-col overflow-hidden rounded-[var(--radius-surface)] border border-line bg-surface shadow-[var(--shadow-panel)]"
@@ -446,6 +465,7 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
             </div>
           </div>
         </section>
+        )}
       </div>
     </div>
   );
