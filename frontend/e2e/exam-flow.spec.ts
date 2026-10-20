@@ -85,8 +85,28 @@ async function setUp(): Promise<Setup> {
   return { examId: exam.id, roll: imported.imported[0]!.roll_number, password: imported.imported[0]!.password, title };
 }
 
+/**
+ * With E2E_UPSTREAM (such as http://127.0.0.1:8382), the browser keeps the
+ * public origin, so secure cookies and the cross-site check behave as in
+ * production, while each request is served by the frontend on this host.
+ */
+async function newPage(browser: Browser): Promise<Page> {
+  const context = await browser.newContext();
+  const upstream = process.env.E2E_UPSTREAM;
+  if (upstream) {
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    await context.route(`${origin}/**`, async (route) => {
+      const url = new URL(route.request().url());
+      const response = await route.fetch({ url: upstream + url.pathname + url.search, maxRedirects: 0,
+        headers: { ...route.request().headers(), host: url.host, "x-forwarded-proto": "https" } });
+      await route.fulfill({ response });
+    });
+  }
+  return context.newPage();
+}
+
 async function signIn(browser: Browser, identifier: string, password: string): Promise<Page> {
-  const page = await (await browser.newContext()).newPage();
+  const page = await newPage(browser);
   await page.goto("/login");
   await page.getByLabel("Roll number or username").fill(identifier);
   await page.getByLabel("Password", { exact: true }).fill(password);
