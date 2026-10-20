@@ -76,12 +76,31 @@ function ReleasedResult({ result }: { result: Extract<AttemptResult, { released:
       </p>
       <ul className="mt-9 overflow-hidden rounded-[var(--radius-surface)] border border-line bg-surface">
         {result.items.map((item, index) => (
-          <li key={item.exam_item_id} className={index > 0 ? "flex items-center gap-4 border-t border-line px-5 py-3" : "flex items-center gap-4 px-5 py-3"}>
-            <span className="w-6 shrink-0 text-sm text-ink-muted">{item.position ?? index + 1}</span>
-            <span className="min-w-0 flex-1 truncate text-[15px] text-ink">{item.title ?? "Question"}</span>
-            <span className="shrink-0 font-mono text-sm tabular-nums text-ink">
-              {formatScoreText(Number(item.score))} / {formatScoreText(Number(item.maximum_score))}
-            </span>
+          <li key={item.exam_item_id} className={index > 0 ? "border-t border-line px-5 py-3" : "px-5 py-3"}>
+            <div className="flex items-center gap-4">
+              <span className="w-6 shrink-0 text-sm text-ink-muted">{item.position ?? index + 1}</span>
+              <span className="min-w-0 flex-1 truncate text-[15px] text-ink">{item.title ?? "Question"}</span>
+              <span className="shrink-0 font-mono text-sm tabular-nums text-ink">
+                {formatScoreText(Number(item.score))} / {formatScoreText(Number(item.maximum_score))}
+              </span>
+            </div>
+            {item.tests && item.tests.length > 0 && (
+              <ol className="mt-2 flex flex-wrap gap-1.5 pl-10" aria-label="Tests">
+                {item.tests.map((test) => (
+                  <li
+                    key={test.number}
+                    title={test.verdict.replaceAll("_", " ")}
+                    className={
+                      test.verdict === "accepted"
+                        ? "rounded-md bg-success-soft px-2 py-0.5 font-mono text-[11px] text-success"
+                        : "rounded-md bg-danger-soft px-2 py-0.5 font-mono text-[11px] text-danger"
+                    }
+                  >
+                    Test {test.number} {test.verdict === "accepted" ? "passed" : test.verdict.replaceAll("_", " ")}
+                  </li>
+                ))}
+              </ol>
+            )}
           </li>
         ))}
       </ul>

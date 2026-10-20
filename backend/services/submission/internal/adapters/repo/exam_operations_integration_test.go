@@ -226,6 +226,9 @@ func TestExamOperations(t *testing.T) {
 		require.Equal(t, true, released["released"])
 		require.InDelta(t, 10, released["score"], 0.001)
 		require.Len(t, released["items"], 1)
+		tests := released["items"].([]any)[0].(map[string]any)["tests"].([]any)
+		require.Len(t, tests, 2, "each test of the best evaluation, by number")
+		require.Equal(t, map[string]any{"number": float64(1), "verdict": "accepted"}, tests[0])
 
 		err := staff("submission.write", "submission.attempt_events", func(transaction pgx.Tx) error {
 			_, err := transaction.Exec(ctx, `SELECT submission.extend_attempt_deadlines($1, $2, $3, 600)`,

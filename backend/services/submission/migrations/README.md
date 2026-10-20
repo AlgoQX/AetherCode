@@ -124,3 +124,7 @@ gains `require_fullscreen` and `block_external_paste`, set by staff with
 `paste` or `fullscreen_exit` (at most 1000 per attempt) as
 `submission.attempt.integrity.v1`; the live state returns the settings and
 the monitor returns them with a flag count per candidate. Rollback drops them.
+
+`000033_result_tests` adds to a released result each item's kind and the
+per-test verdicts of its best completed evaluation, by number only
+(ADR-0038). Rollback restores the 000028 function.

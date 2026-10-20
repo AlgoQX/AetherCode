@@ -300,7 +300,16 @@ export type AttemptResult =
       released_at: string;
       score: number;
       maximum_score: number;
-      items: { exam_item_id: string; position: number | null; title: string | null; score: number; maximum_score: number }[];
+      items: {
+        exam_item_id: string;
+        position: number | null;
+        title: string | null;
+        score: number;
+        maximum_score: number;
+        kind?: "coding" | "mcq";
+        /** The best evaluation's verdict per test, by number only (ADR-0038). */
+        tests?: { number: number; verdict: string }[];
+      }[];
     };
 
 /** GET /submission/v1/tenants/{t}/attempts/{a}/review: the staff view of one attempt (ADR-0029). */
