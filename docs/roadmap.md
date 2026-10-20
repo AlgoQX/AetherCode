@@ -92,8 +92,8 @@ Done 2026-10-19 (code; integration-tested, not yet on the campus stack):
   placement department reached nobody (ADR-0026); no draft-question list or
   exam-content read for staff; exam results capped at 500 rows.
 
-Done 2026-10-20 (code; tested on the campus server's scratch checkout, not
-yet deployed): practice problems (ADR-0041). Staff mark questions for tests
+Done 2026-10-20, deployed and verified by `smoke.py` on the campus stack:
+practice problems (ADR-0041). Staff mark questions for tests
 or practice; students get a practice catalogue, a run/submit workspace and a
 My progress page; exams offer test questions only.
 
