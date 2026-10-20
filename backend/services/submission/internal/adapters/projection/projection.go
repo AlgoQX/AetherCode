@@ -57,8 +57,8 @@ func (store *Store) Ping(contextValue context.Context) error {
 // migration 000020, and the limits and languages for those before 000024.
 type assignmentItem struct {
 	ExamItemID                   string      `json:"exam_item_id"`
-	EvaluationBundleObjectKey    string      `json:"evaluation_bundle_object_key"`
-	EvaluationBundleChecksum     string      `json:"evaluation_bundle_checksum"`
+	EvaluationBundleObjectKey    string      `json:"evaluation_bundle_object_key,omitempty"`
+	EvaluationBundleChecksum     string      `json:"evaluation_bundle_checksum,omitempty"`
 	EvaluationBundleKeyReference string      `json:"evaluation_bundle_key_reference"`
 	SampleBundleObjectKey        string      `json:"sample_bundle_object_key"`
 	SampleBundleChecksum         string      `json:"sample_bundle_checksum"`
@@ -71,6 +71,13 @@ type assignmentItem struct {
 	// written before Assessment migration 000026 and on legacy items.
 	Title          *string `json:"title"`
 	PromptMarkdown *string `json:"prompt_markdown"`
+	// Kind is "coding" or "mcq" (ADR-0035); absent on snapshots written before
+	// Assessment migration 000030. An mcq item has options and a key instead
+	// of bundles and limits.
+	Kind           *string  `json:"kind"`
+	Choices        []string `json:"choices"`
+	CorrectChoices []int    `json:"correct_choices"`
+	MultipleChoice *bool    `json:"multiple_choice"`
 }
 
 type assignmentSnapshot struct {
@@ -217,8 +224,15 @@ func parseAssignmentSnapshot(event messaging.Event) (assignmentSnapshot, error) 
 	seenItems := make(map[string]struct{}, len(payload.Items))
 	for _, item := range payload.Items {
 		maximumScore, parseErr := strconv.ParseFloat(item.MaximumScore.String(), 64)
-		if !validUUID(item.ExamItemID) || strings.TrimSpace(item.EvaluationBundleObjectKey) == "" ||
-			!validSHA256(item.EvaluationBundleChecksum) || parseErr != nil || maximumScore <= 0 {
+		if !validUUID(item.ExamItemID) || parseErr != nil || maximumScore <= 0 {
+			return assignmentSnapshot{}, fmt.Errorf("assessment assignment item is invalid")
+		}
+		if item.Kind != nil && *item.Kind == "mcq" {
+			if !validChoices(item) {
+				return assignmentSnapshot{}, fmt.Errorf("assessment assignment multiple-choice item is invalid")
+			}
+		} else if (item.Kind != nil && *item.Kind != "coding") || strings.TrimSpace(item.EvaluationBundleObjectKey) == "" ||
+			!validSHA256(item.EvaluationBundleChecksum) {
 			return assignmentSnapshot{}, fmt.Errorf("assessment assignment item is invalid")
 		}
 		if !validText(item.Title, 300) || !validText(item.PromptMarkdown, 200000) || (item.Title == nil) != (item.PromptMarkdown == nil) {
@@ -357,4 +371,18 @@ func projectionError(err error, operation string) error {
 		return messaging.Permanent(fmt.Errorf("%s: %w", operation, err))
 	}
 	return fmt.Errorf("%s: %w", operation, err)
+}
+
+// validChoices mirrors the projection's bounds on a multiple-choice item.
+func validChoices(item assignmentItem) bool {
+	if len(item.Choices) < 2 || len(item.Choices) > 10 || len(item.CorrectChoices) < 1 || item.MultipleChoice == nil ||
+		(!*item.MultipleChoice && len(item.CorrectChoices) != 1) || item.Title == nil {
+		return false
+	}
+	for _, index := range item.CorrectChoices {
+		if index < 0 || index >= len(item.Choices) {
+			return false
+		}
+	}
+	return true
 }

@@ -24,6 +24,49 @@ func (handler *Handler) registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/result", handler.getAttemptResult)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/review", handler.reviewAttempt)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/similarity", handler.similarityReport)
+	mux.HandleFunc("PUT /v1/tenants/{tenant_id}/attempts/{attempt_id}/choices/{exam_item_id}", handler.saveChoice)
+}
+
+type saveChoiceRequest struct {
+	Selected []int `json:"selected"`
+}
+
+// saveChoice stores the candidate's selection for a multiple-choice item (ADR-0035).
+func (handler *Handler) saveChoice(writer http.ResponseWriter, request *http.Request) {
+	tenantID, err := httpx.ParseUUIDPathValue(request, "tenant_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	attemptID, err := httpx.ParseUUIDPathValue(request, "attempt_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	examItemID, err := httpx.ParseUUIDPathValue(request, "exam_item_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body saveChoiceRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	candidateID, err := candidateResourceID(request)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "attempts", candidateID, tenantID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	saved, err := handler.service.SaveChoice(request.Context(), decision.Capability, app.SaveChoice{
+		TenantID: tenantID, AttemptID: attemptID, ExamItemID: examItemID, Selected: body.Selected,
+	})
+	writeRaw(writer, http.StatusOK, saved, err)
 }
 
 // similarityReport compares students' latest code per question (ADR-0031).

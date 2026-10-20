@@ -414,7 +414,7 @@ func TestFailedDispatchStillGradesTheAttempt(t *testing.T) {
 		fixture.AttemptID).Scan(&score, &maximum, &calculationVersion))
 	require.Zero(t, score)
 	require.Equal(t, 20.0, maximum)
-	require.Equal(t, 3, calculationVersion)
+	require.Equal(t, 4, calculationVersion)
 
 	var code string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT failure_code FROM submission.evaluation_requests WHERE id = $1`, second).Scan(&code))
@@ -535,7 +535,7 @@ func TestWeightedScoring(t *testing.T) {
 				fixture.AttemptID).Scan(&score, &maximum, &calculationVersion))
 			require.Equal(t, testCase.wantScore, score)
 			require.Equal(t, fmt.Sprintf("%d.0000", 10*len(testCase.items)), maximum)
-			require.Equal(t, 3, calculationVersion)
+			require.Equal(t, 4, calculationVersion)
 		})
 	}
 

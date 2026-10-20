@@ -38,6 +38,18 @@ type PaperItem struct {
 	TimeLimitMS        int          `json:"time_limit_ms"`
 	MemoryLimitKiB     int          `json:"memory_limit_kib"`
 	LatestAnswer       *PaperAnswer `json:"latest_answer"`
+	// Kind is "coding" or "mcq" (ADR-0035). An mcq item lists its options in
+	// this candidate's order, each with its authored index, and the saved
+	// selection; the answer key never reaches the candidate.
+	Kind           string        `json:"kind"`
+	Choices        []PaperChoice `json:"choices,omitempty"`
+	MultipleChoice bool          `json:"multiple_choice"`
+	LatestChoice   []int         `json:"latest_choice"`
+}
+
+type PaperChoice struct {
+	Index int    `json:"index"`
+	Text  string `json:"text"`
 }
 
 type PaperAnswer struct {
@@ -67,6 +79,10 @@ type StoredPaperItem struct {
 	TimeLimitMS        *int             `json:"time_limit_ms"`
 	MemoryLimitKiB     *int             `json:"memory_limit_kib"`
 	LatestAnswer       *StoredAnswerRef `json:"latest_answer"`
+	Kind               string           `json:"kind"`
+	Choices            []PaperChoice    `json:"choices"`
+	MultipleChoice     bool             `json:"multiple_choice"`
+	LatestChoice       []int            `json:"latest_choice"`
 }
 
 type StoredAnswerRef struct {
@@ -105,6 +121,10 @@ func buildPaper(contextValue context.Context, stored StoredPaper, readSource fun
 		out := PaperItem{
 			ExamItemID: item.ExamItemID, Position: index + 1, Title: deref(item.Title), PromptMarkdown: deref(item.PromptMarkdown),
 			MaximumScore: item.MaximumScore, SupportedLanguages: item.SupportedLanguages,
+			Kind: item.Kind, Choices: item.Choices, MultipleChoice: item.MultipleChoice, LatestChoice: item.LatestChoice,
+		}
+		if out.Kind == "" {
+			out.Kind = "coding"
 		}
 		if item.Position != nil {
 			out.Position = *item.Position

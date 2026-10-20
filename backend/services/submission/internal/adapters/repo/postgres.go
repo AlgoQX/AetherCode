@@ -682,3 +682,8 @@ func (repository *Postgres) ListExamLatestAnswers(contextValue context.Context, 
 	}
 	return answers, nil
 }
+
+func (repository *Postgres) SaveChoice(contextValue context.Context, transaction pgx.Tx, command app.SaveChoice) (json.RawMessage, error) {
+	return queryJSON(contextValue, transaction, "save choice",
+		`SELECT submission.save_choice_answer($1, $2, $3, $4)`, command.TenantID, command.AttemptID, command.ExamItemID, command.Selected)
+}

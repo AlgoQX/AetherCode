@@ -94,6 +94,7 @@ type Store interface {
 	GetAttemptResult(context.Context, pgx.Tx, GetAttempt) (json.RawMessage, error)
 	GetAttemptReview(context.Context, pgx.Tx, GetAttempt) (StoredReview, error)
 	ListExamLatestAnswers(context.Context, pgx.Tx, ExamVersionCommand) ([]StoredLatestAnswer, error)
+	SaveChoice(context.Context, pgx.Tx, SaveChoice) (json.RawMessage, error)
 	Ping(context.Context) error
 }
 

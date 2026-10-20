@@ -106,6 +106,9 @@ func (validationStore) GetAttemptReview(context.Context, pgx.Tx, GetAttempt) (St
 func (validationStore) ListExamLatestAnswers(context.Context, pgx.Tx, ExamVersionCommand) ([]StoredLatestAnswer, error) {
 	return nil, nil
 }
+func (validationStore) SaveChoice(context.Context, pgx.Tx, SaveChoice) (json.RawMessage, error) {
+	return nil, nil
+}
 func (validationStore) Ping(context.Context) error { return nil }
 
 func TestStartAttemptRejectsInvalidCommandBeforeTransaction(t *testing.T) {
