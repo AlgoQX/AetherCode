@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/aethercode/aethercode/services/identity/internal/app"
 	"github.com/aethercode/aethercode/services/identity/internal/domain"
@@ -83,6 +85,9 @@ func TestSignInAgainstZitadel(t *testing.T) {
 		t.Skip("ZITADEL_TEST_URL, ZITADEL_TEST_PAT_FILE and ZITADEL_TEST_ORG_ID are not set")
 	}
 	ctx := context.Background()
+	// Unique per run, so the test can run again on the same ZITADEL.
+	run := strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
+	username := "22it" + run
 	admin := New(Config{Issuer: issuer, ClientID: "x", ClientSecret: "x", RedirectURI: "x",
 		AdminTokenFile: patFile, OrganizationID: orgID, EmailDomain: "students.example.invalid"})
 	headers, err := admin.adminHeaders()
@@ -92,7 +97,7 @@ func TestSignInAgainstZitadel(t *testing.T) {
 	var project struct {
 		ID string `json:"id"`
 	}
-	if err := admin.do(ctx, http.MethodPost, issuer+"/management/v1/projects", headers, map[string]any{"name": "AetherCode SSO test"}, &project); err != nil {
+	if err := admin.do(ctx, http.MethodPost, issuer+"/management/v1/projects", headers, map[string]any{"name": "AetherCode SSO test " + run}, &project); err != nil {
 		t.Fatalf("create project: %v", err)
 	}
 	redirect := "http://localhost/auth/sso/callback"
@@ -113,7 +118,7 @@ func TestSignInAgainstZitadel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := admin.CreateUser(ctx, app.DirectoryAccount{Username: "22it042", DisplayName: "Ravi S", PasswordHash: hash}); err != nil {
+	if _, err := admin.CreateUser(ctx, app.DirectoryAccount{Username: username, DisplayName: "Ravi S", PasswordHash: hash}); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 
@@ -137,7 +142,7 @@ func TestSignInAgainstZitadel(t *testing.T) {
 		SessionToken string `json:"sessionToken"`
 	}
 	if err := admin.do(ctx, http.MethodPost, issuer+"/v2/sessions", headers, map[string]any{"checks": map[string]any{
-		"user": map[string]any{"loginName": "22it042"}, "password": map[string]any{"password": "SignIn2026abc"},
+		"user": map[string]any{"loginName": username}, "password": map[string]any{"password": "SignIn2026abc"},
 	}}, &session); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -160,7 +165,7 @@ func TestSignInAgainstZitadel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Identify: %v", err)
 	}
-	if identity.Subject == "" || app.DirectoryUsername(identity.Username) != "22it042" {
-		t.Fatalf("Identify = %+v, want the user 22it042", identity)
+	if identity.Subject == "" || app.DirectoryUsername(identity.Username) != username {
+		t.Fatalf("Identify = %+v, want the user %s", identity, username)
 	}
 }
