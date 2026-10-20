@@ -97,6 +97,11 @@ practice problems (ADR-0041). Staff mark questions for tests
 or practice; students get a practice catalogue, a run/submit workspace and a
 My progress page; exams offer test questions only.
 
+Done 2026-10-20, deployed with SSO switched off: single sign-on through the
+college's ZITADEL (ADR-0042), tested against a real ZITADEL. It goes live
+once ZITADEL's argon2 verifier, an OIDC app and a service-user token are in
+place (`deploy/single-server/README.md`, "Single sign-on").
+
 ---
 
 ## Phase 0: Run the platform on one server (≈3 days)
