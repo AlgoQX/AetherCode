@@ -42,3 +42,9 @@ the student's placement department (ADR-0026).
 `000028_practice_self_policy` lets students read and write
 `practice_submissions` in their own `self` scope (ADR-0041); Question Bank
 binds every practice row to the signed actor.
+
+`000029_staff_audit` adds the audit log of staff actions (ADR-0043):
+`staff_audit`, `record_staff_action` (the only thing the authorization role
+may call), `list_staff_audit` for college administrators, and
+`tenant_readable_principals`, the read-only twin of
+`tenant_account_principals`, used to name accounts. Rollback drops them.
