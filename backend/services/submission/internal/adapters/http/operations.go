@@ -25,6 +25,70 @@ func (handler *Handler) registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/attempts/{attempt_id}/review", handler.reviewAttempt)
 	mux.HandleFunc("GET /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/similarity", handler.similarityReport)
 	mux.HandleFunc("PUT /v1/tenants/{tenant_id}/attempts/{attempt_id}/choices/{exam_item_id}", handler.saveChoice)
+	mux.HandleFunc("PUT /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/integrity", handler.setIntegrity)
+	mux.HandleFunc("POST /v1/tenants/{tenant_id}/attempts/{attempt_id}/events", handler.recordIntegrityEvent)
+}
+
+type integrityRequest struct {
+	RequireFullscreen  bool `json:"require_fullscreen"`
+	BlockExternalPaste bool `json:"block_external_paste"`
+}
+
+func (handler *Handler) setIntegrity(writer http.ResponseWriter, request *http.Request) {
+	var body integrityRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	command, capability, err := handler.authorizeExamVersion(request, "write", "attempt_events")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	if err := handler.service.SetIntegrity(request.Context(), capability, app.SetIntegrity{
+		ExamVersionCommand: command, RequireFullscreen: body.RequireFullscreen, BlockExternalPaste: body.BlockExternalPaste,
+	}); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	httpx.WriteJSON(writer, http.StatusOK, body)
+}
+
+type integrityEventRequest struct {
+	Kind string `json:"kind"`
+}
+
+func (handler *Handler) recordIntegrityEvent(writer http.ResponseWriter, request *http.Request) {
+	tenantID, err := httpx.ParseUUIDPathValue(request, "tenant_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	attemptID, err := httpx.ParseUUIDPathValue(request, "attempt_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body integrityEventRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	candidateID, err := candidateResourceID(request)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "attempts", candidateID, tenantID)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	if err := handler.service.RecordIntegrityEvent(request.Context(), decision.Capability, app.GetAttempt{TenantID: tenantID, AttemptID: attemptID}, body.Kind); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
 }
 
 type saveChoiceRequest struct {

@@ -137,6 +137,50 @@ func TestExamOperations(t *testing.T) {
 		require.ErrorContains(t, err, "not found", "another candidate cannot read this attempt")
 	})
 
+	t.Run("integrity settings reach the exam screen and events become flags", func(t *testing.T) {
+		require.NoError(t, staff("submission.write", "submission.attempt_events", func(transaction pgx.Tx) error {
+			_, err := transaction.Exec(ctx, `SELECT submission.set_exam_integrity($1, $2, true, true)`, unitTenantID, versionID)
+			return err
+		}))
+		var live struct {
+			RequireFullscreen  bool `json:"require_fullscreen"`
+			BlockExternalPaste bool `json:"block_external_paste"`
+		}
+		require.NoError(t, candidate(func(transaction pgx.Tx) error {
+			var raw []byte
+			if err := transaction.QueryRow(ctx, `SELECT submission.get_attempt_live_state_for_candidate($1, $2)`, unitTenantID, fixture.AttemptID).Scan(&raw); err != nil {
+				return err
+			}
+			return json.Unmarshal(raw, &live)
+		}))
+		require.True(t, live.RequireFullscreen)
+		require.True(t, live.BlockExternalPaste)
+
+		record := func(kind string) error {
+			return asActor(ctx, t, pool, fixture.CandidateID, "submission.write", "submission.attempts", func(transaction pgx.Tx) error {
+				_, err := transaction.Exec(ctx, `SELECT submission.record_integrity_event($1, $2, $3)`, unitTenantID, fixture.AttemptID, kind)
+				return err
+			})
+		}
+		require.NoError(t, record("blur"))
+		require.NoError(t, record("paste"))
+		require.ErrorContains(t, record("screenshot"), "unknown integrity event")
+
+		var monitor struct {
+			Candidates []struct {
+				Flags int `json:"flags"`
+			} `json:"candidates"`
+		}
+		require.NoError(t, staff("submission.read", "submission.score_summaries", func(transaction pgx.Tx) error {
+			var raw []byte
+			if err := transaction.QueryRow(ctx, `SELECT submission.get_exam_monitor($1, $2)`, unitTenantID, versionID).Scan(&raw); err != nil {
+				return err
+			}
+			return json.Unmarshal(raw, &monitor)
+		}))
+		require.Equal(t, 2, monitor.Candidates[0].Flags)
+	})
+
 	t.Run("the score stays hidden until staff release it", func(t *testing.T) {
 		fixture.save(item)
 		state, requestIDs := fixture.endTest()

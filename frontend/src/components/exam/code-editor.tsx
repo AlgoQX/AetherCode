@@ -78,6 +78,8 @@ export function CodeEditor({
   settings,
   onRun,
   onSubmit,
+  guardPaste = false,
+  onBlockedPaste,
 }: {
   /** One model per question, so each keeps its own undo history. */
   path: string;
@@ -90,17 +92,41 @@ export function CodeEditor({
   onRun: () => void;
   /** Ctrl/Cmd+Shift+Enter. */
   onSubmit: () => void;
+  /** Block pasting or dropping text that was not copied in this editor (ADR-0037). */
+  guardPaste?: boolean;
+  onBlockedPaste?: () => void;
 }) {
   const systemDark = usePrefersDark();
   const dark = settings.theme === "system" ? systemDark : settings.theme === "dark";
   // Monaco commands are registered once; they call the latest handlers.
-  const handlers = useRef({ onRun, onSubmit });
+  const handlers = useRef({ onRun, onSubmit, guardPaste, onBlockedPaste });
   useEffect(() => {
-    handlers.current = { onRun, onSubmit };
-  }, [onRun, onSubmit]);
+    handlers.current = { onRun, onSubmit, guardPaste, onBlockedPaste };
+  }, [onRun, onSubmit, guardPaste, onBlockedPaste]);
   const mount: OnMount = (editor, monaco) => {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => handlers.current.onRun());
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => handlers.current.onSubmit());
+    // Text copied inside the editor may be pasted back; anything else is
+    // blocked while the exam's paste guard is on, as in the exam app.
+    const node = editor.getDomNode();
+    if (!node) return;
+    const copied: string[] = [];
+    const remember = () => {
+      const selection = editor.getSelection();
+      const text = selection ? (editor.getModel()?.getValueInRange(selection) ?? "").trim() : "";
+      if (text) copied.splice(0, copied.length, ...[...copied, text].slice(-20));
+    };
+    const guard = (text: string, event: Event) => {
+      const trimmed = text.trim();
+      if (!handlers.current.guardPaste || trimmed === "" || copied.includes(trimmed)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handlers.current.onBlockedPaste?.();
+    };
+    node.addEventListener("copy", remember, true);
+    node.addEventListener("cut", remember, true);
+    node.addEventListener("paste", (event) => guard(event.clipboardData?.getData("text/plain") ?? "", event), true);
+    node.addEventListener("drop", (event) => guard(event.dataTransfer?.getData("text/plain") ?? "", event), true);
   };
   return (
     <Editor
@@ -114,6 +140,8 @@ export function CodeEditor({
       loading={null}
       options={{
         readOnly,
+        // The context menu pastes through the clipboard API, past the guard.
+        contextmenu: !guardPaste,
         fontFamily: "var(--font-geist-mono), ui-monospace, Consolas, monospace",
         fontSize: settings.fontSize,
         lineHeight: Math.round(settings.fontSize * 1.6),

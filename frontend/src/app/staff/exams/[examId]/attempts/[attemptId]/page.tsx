@@ -27,6 +27,8 @@ function describe(event: AttemptReview["events"][number]): string {
       return "Graded";
     case "submission.attempt.cancelled.v1":
       return "Attempt cancelled";
+    case "submission.attempt.integrity.v1":
+      return { blur: "Left the exam window", paste: "Tried to paste from outside the exam (blocked)", fullscreen_exit: "Left fullscreen" }[String(payload.kind)] ?? "Integrity event";
     default:
       return event.event_type.replace(/^submission\./, "").replace(/\.v\d+$/, "").replaceAll(/[._]/g, " ");
   }

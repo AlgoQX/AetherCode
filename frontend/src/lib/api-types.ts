@@ -269,17 +269,28 @@ export type MonitorCandidate = {
   items_answered: number;
   score: number | null;
   maximum_score: number | null;
+  /** Integrity events: left the window, left fullscreen, blocked pastes (ADR-0037). */
+  flags: number;
 };
 
 export type ExamMonitor = {
   exam_version_id: string;
+  require_fullscreen: boolean;
+  block_external_paste: boolean;
   results_released_at: string | null;
   announcements: Announcement[];
   candidates: MonitorCandidate[];
 };
 
 /** What an open exam screen polls: staff may extend the deadline or post a message. */
-export type AttemptLiveState = { lifecycle_state: string; submission_deadline: string; announcements: Announcement[] };
+export type AttemptLiveState = {
+  lifecycle_state: string;
+  submission_deadline: string;
+  announcements: Announcement[];
+  /** Exam integrity (ADR-0037). */
+  require_fullscreen: boolean;
+  block_external_paste: boolean;
+};
 
 /** A candidate's score, present only after staff release results. */
 export type AttemptResult =

@@ -687,3 +687,19 @@ func (repository *Postgres) SaveChoice(contextValue context.Context, transaction
 	return queryJSON(contextValue, transaction, "save choice",
 		`SELECT submission.save_choice_answer($1, $2, $3, $4)`, command.TenantID, command.AttemptID, command.ExamItemID, command.Selected)
 }
+
+func (repository *Postgres) SetIntegrity(contextValue context.Context, transaction pgx.Tx, command app.SetIntegrity) error {
+	if _, err := transaction.Exec(contextValue, `SELECT submission.set_exam_integrity($1, $2, $3, $4)`,
+		command.TenantID, command.ExamVersionID, command.RequireFullscreen, command.BlockExternalPaste); err != nil {
+		return mapDatabaseError(err, "set exam integrity")
+	}
+	return nil
+}
+
+func (repository *Postgres) RecordIntegrityEvent(contextValue context.Context, transaction pgx.Tx, command app.GetAttempt, kind string) error {
+	if _, err := transaction.Exec(contextValue, `SELECT submission.record_integrity_event($1, $2, $3)`,
+		command.TenantID, command.AttemptID, kind); err != nil {
+		return mapDatabaseError(err, "record integrity event")
+	}
+	return nil
+}

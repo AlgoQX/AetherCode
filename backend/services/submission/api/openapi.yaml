@@ -623,6 +623,48 @@ paths:
         '200': { description: The saved selection. }
         '400': { $ref: '#/components/responses/Problem400' }
         '409': { $ref: '#/components/responses/Problem409' }
+  /v1/tenants/{tenant_id}/exam-versions/{exam_version_id}/integrity:
+    put:
+      summary: Require fullscreen and block outside pastes for an exam (ADR-0037)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/ExamVersionID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                require_fullscreen: { type: boolean }
+                block_external_paste: { type: boolean }
+      responses:
+        '200': { description: The saved settings. }
+        '403': { $ref: '#/components/responses/Problem403' }
+  /v1/tenants/{tenant_id}/attempts/{attempt_id}/events:
+    post:
+      summary: Record an integrity event for the caller's attempt (ADR-0037)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantID'
+        - $ref: '#/components/parameters/AttemptID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [kind]
+              properties:
+                kind: { type: string, enum: [blur, paste, fullscreen_exit] }
+      responses:
+        '204': { description: Recorded (or ignored once the attempt ended). }
+        '400': { $ref: '#/components/responses/Problem400' }
 components:
   securitySchemes:
     bearerAuth:

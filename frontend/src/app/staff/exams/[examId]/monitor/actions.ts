@@ -56,3 +56,18 @@ export async function setResultsRelease(_previous: ActionState, form: FormData):
     return { error: actionError(error) };
   }
 }
+
+/** Fullscreen requirement and paste guard for the exam (ADR-0037). */
+export async function setIntegrity(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const { base, path } = await target(form);
+  try {
+    await gateway(`${base}/integrity`, {
+      method: "PUT",
+      body: { require_fullscreen: form.get("require_fullscreen") === "on", block_external_paste: form.get("block_external_paste") === "on" },
+    });
+    revalidatePath(path);
+    return { error: null, message: "Saved. Open exam screens apply it within 15 seconds." };
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+}

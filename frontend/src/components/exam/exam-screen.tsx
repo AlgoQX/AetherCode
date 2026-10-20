@@ -21,6 +21,7 @@ import { RunConsole, type RunState, runSummary } from "./run-console";
 import { ChoicePane } from "./choice-pane";
 import { SubmissionsPanel } from "./submissions-panel";
 import { type SaveState, useAnswers } from "./use-answers";
+import { useIntegrity } from "./use-integrity";
 import { useLiveState } from "./use-live-state";
 import { bestScore, isJudging, useSubmissions } from "./use-submissions";
 
@@ -130,6 +131,7 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
   const customRun = customRuns[currentId] ?? { kind: "idle" };
   const activeRun = useCustomInput ? customRun : run;
   const readOnly = answers.saveState === "closed";
+  const integrity = useIntegrity(attemptPath, live.integrity.requireFullscreen, !readOnly && !ending);
   const itemSubmissions = submissions.byItem[currentId];
 
   const statuses = useMemo(() => {
@@ -273,6 +275,22 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
         <EndTestDialog items={items} statuses={statuses} ending={ending} onEnd={endTest} />
       </header>
 
+      {integrity.needsFullscreen && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-40 grid place-items-center bg-canvas px-4">
+          <div className="max-w-md text-center">
+            <h2 className="display text-[2rem] text-ink">Fullscreen required</h2>
+            <p className="mt-3 text-[15px] text-ink-muted">
+              This exam must be taken in fullscreen. Leaving fullscreen is recorded. Your timer keeps running:{" "}
+              <strong className="font-mono text-ink">{remaining === null ? "--:--" : formatCountdown(remaining)}</strong> left.
+            </p>
+            <Button className="mt-8" size="lg" onClick={integrity.enterFullscreen}>
+              <Maximize2 />
+              Enter fullscreen
+            </Button>
+          </div>
+        </div>
+      )}
+
       {latestNote && latestNote.id !== dismissed && (
         <div role="status" className="flex items-start gap-3 border-b bg-brand-soft px-4 py-2 text-sm text-brand-soft-ink">
           <Megaphone className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
@@ -373,6 +391,8 @@ function ExamWorkspace({ attemptPath, attemptId, attempt, paper }: Loaded & { at
               settings={settings}
               onRun={runCode}
               onSubmit={submitCode}
+              guardPaste={live.integrity.blockExternalPaste}
+              onBlockedPaste={integrity.blockedPaste}
             />
           </div>
 

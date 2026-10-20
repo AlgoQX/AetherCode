@@ -159,3 +159,32 @@ func (service *Service) candidateJSON(
 	})
 	return response, err
 }
+
+// SetIntegrity turns the exam's fullscreen requirement and paste guard on or
+// off (ADR-0037).
+type SetIntegrity struct {
+	ExamVersionCommand
+	RequireFullscreen  bool
+	BlockExternalPaste bool
+}
+
+func (service *Service) SetIntegrity(contextValue context.Context, capability centralauthz.Capability, command SetIntegrity) error {
+	if err := command.validate(); err != nil {
+		return err
+	}
+	return service.inTenant(contextValue, capability, func(transaction pgx.Tx) error {
+		return service.store.SetIntegrity(contextValue, transaction, command)
+	})
+}
+
+// RecordIntegrityEvent stores what the exam screen saw: the candidate left the
+// window, left fullscreen, or pasted text from outside (ADR-0037).
+func (service *Service) RecordIntegrityEvent(contextValue context.Context, capability centralauthz.Capability, command GetAttempt, kind string) error {
+	command.TenantID, command.AttemptID = normalizeUUID(command.TenantID), normalizeUUID(command.AttemptID)
+	if !isUUID(command.TenantID) || !isUUID(command.AttemptID) || (kind != "blur" && kind != "paste" && kind != "fullscreen_exit") {
+		return apperrors.New(apperrors.CodeInvalidArgument, "an integrity event is blur, paste or fullscreen_exit")
+	}
+	return service.inTenant(contextValue, capability, func(transaction pgx.Tx) error {
+		return service.store.RecordIntegrityEvent(contextValue, transaction, command, kind)
+	})
+}

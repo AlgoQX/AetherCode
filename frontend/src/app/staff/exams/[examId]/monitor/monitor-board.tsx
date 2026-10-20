@@ -10,7 +10,7 @@ import { Badge, Panel } from "@/components/ui/card";
 import type { ExamMonitor, MonitorCandidate } from "@/lib/api-types";
 import { formatCountdown, useNow } from "@/lib/client/use-now";
 import { formatDateTime, formatScoreText, formatTime } from "@/lib/utils";
-import { extendTime, postAnnouncement, setResultsRelease } from "./actions";
+import { extendTime, postAnnouncement, setIntegrity, setResultsRelease } from "./actions";
 
 const REFRESH_MS = 15_000;
 
@@ -125,6 +125,24 @@ export function MonitorBoard({
         <ReleasePanel hidden={hidden} releasedAt={monitor.results_released_at} />
       </div>
 
+      <Panel className="mt-4 p-5">
+        <h2 className="mb-1 text-[15px] font-semibold text-ink">Integrity</h2>
+        <p className="mb-4 text-sm text-ink-muted">
+          Leaving the exam window is always recorded as a flag. Outside Safe Exam Browser you can also require fullscreen and block pasting text from outside the exam.
+        </p>
+        <ActionForm action={setIntegrity} submitLabel="Save integrity settings">
+          {hidden}
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" name="require_fullscreen" defaultChecked={monitor.require_fullscreen} className="accent-[var(--brand)]" />
+            Require fullscreen
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" name="block_external_paste" defaultChecked={monitor.block_external_paste} className="accent-[var(--brand)]" />
+            Block pasting from outside the exam
+          </label>
+        </ActionForm>
+      </Panel>
+
       {monitor.announcements.length > 0 && (
         <Section title="Sent announcements">
           <ul className="space-y-2">
@@ -142,7 +160,7 @@ export function MonitorBoard({
         {rows.length === 0 ? (
           <EmptyState>Nobody is assigned to this exam yet.</EmptyState>
         ) : (
-          <Table head={["Roll number", "Status", "Time left", "Answered", "Score", ""]}>
+          <Table head={["Roll number", "Status", "Time left", "Answered", "Flags", "Score", ""]}>
             {rows.map(({ candidate, roll, status }) => (
               <tr key={candidate.candidate_id}>
                 <td className="px-4 py-2.5 font-mono text-[13px] text-ink">
@@ -165,6 +183,15 @@ export function MonitorBoard({
                       : "-"}
                 </td>
                 <td className="px-4 py-2.5 tabular-nums text-ink">{candidate.attempt_id ? candidate.items_answered : "-"}</td>
+                <td className="px-4 py-2.5">
+                  {candidate.flags > 0 ? (
+                    <Badge tone={candidate.flags >= 5 ? "danger" : "warning"} title="Left the window, left fullscreen or pasted from outside">
+                      {candidate.flags}
+                    </Badge>
+                  ) : (
+                    <span className="text-ink-subtle">-</span>
+                  )}
+                </td>
                 <td className="px-4 py-2.5 font-mono tabular-nums text-ink">
                   {candidate.score === null ? "-" : formatScoreText(Number(candidate.score))}
                   {candidate.maximum_score !== null && <span className="text-ink-muted"> / {formatScoreText(Number(candidate.maximum_score))}</span>}

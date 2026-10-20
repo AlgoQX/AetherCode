@@ -15,6 +15,7 @@ const POLL_MS = 15_000;
 export function useLiveState(attemptPath: string, initialDeadline: string) {
   const [deadline, setDeadline] = useState(initialDeadline);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [integrity, setIntegrity] = useState({ requireFullscreen: false, blockExternalPaste: false });
   const seen = useRef<Set<string> | null>(null);
 
   useEffect(() => {
@@ -34,6 +35,11 @@ export function useLiveState(attemptPath: string, initialDeadline: string) {
       }
       seen.current = new Set(live.announcements.map((note) => note.id));
       setAnnouncements(live.announcements);
+      setIntegrity((current) =>
+        current.requireFullscreen === live.require_fullscreen && current.blockExternalPaste === live.block_external_paste
+          ? current
+          : { requireFullscreen: live.require_fullscreen, blockExternalPaste: live.block_external_paste },
+      );
     }
     void poll();
     const timer = setInterval(poll, POLL_MS);
@@ -43,5 +49,5 @@ export function useLiveState(attemptPath: string, initialDeadline: string) {
     };
   }, [attemptPath]);
 
-  return { deadline, announcements };
+  return { deadline, announcements, integrity };
 }

@@ -109,6 +109,10 @@ func (validationStore) ListExamLatestAnswers(context.Context, pgx.Tx, ExamVersio
 func (validationStore) SaveChoice(context.Context, pgx.Tx, SaveChoice) (json.RawMessage, error) {
 	return nil, nil
 }
+func (validationStore) SetIntegrity(context.Context, pgx.Tx, SetIntegrity) error { return nil }
+func (validationStore) RecordIntegrityEvent(context.Context, pgx.Tx, GetAttempt, string) error {
+	return nil
+}
 func (validationStore) Ping(context.Context) error { return nil }
 
 func TestStartAttemptRejectsInvalidCommandBeforeTransaction(t *testing.T) {

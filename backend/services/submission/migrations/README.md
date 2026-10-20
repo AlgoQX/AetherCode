@@ -117,3 +117,10 @@ selection; all-or-nothing mcq scores in `attempt_item_scores`; hand-in and
 time-up counting selections as answers; and grading whose maximum is every
 item the candidate was given (`calculation_version` 4). Rollback refuses while
 mcq items exist.
+
+`000032_exam_integrity` adds exam integrity (ADR-0037): `exam_operations`
+gains `require_fullscreen` and `block_external_paste`, set by staff with
+`set_exam_integrity`; `record_integrity_event` stores a candidate's `blur`,
+`paste` or `fullscreen_exit` (at most 1000 per attempt) as
+`submission.attempt.integrity.v1`; the live state returns the settings and
+the monitor returns them with a flag count per candidate. Rollback drops them.
