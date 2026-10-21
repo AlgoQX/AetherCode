@@ -486,6 +486,10 @@ services:
       # "on" shows "Sign in with your St. Joseph's account" (ADR-0042).
       AETHERCODE_SSO: ${AETHERCODE_SSO:-off}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is not set; see setup.sh}
+      # College names, colours and logos (ADR-0045); absent file, default look.
+      BRANDING_FILE: /branding/branding.json
+    volumes:
+      - ./branding:/branding:ro
     depends_on: [gateway]
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"

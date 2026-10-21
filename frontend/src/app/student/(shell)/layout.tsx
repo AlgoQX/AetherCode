@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { brandFor } from "@/lib/server/branding";
 import { requireViewer } from "@/lib/server/session";
 import { isStaff, isStudent } from "@/lib/viewer";
 
@@ -7,7 +8,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const viewer = await requireViewer();
   if (!isStudent(viewer) && isStaff(viewer)) redirect("/staff");
   return (
-    <AppShell viewer={viewer} nav={[
+    <AppShell viewer={viewer} brand={await brandFor(viewer.tenantId)} nav={[
           { href: "/student", label: "My exams", icon: "exams" },
           { href: "/student/practice", label: "Practice", icon: "practice" },
           { href: "/student/progress", label: "My progress", icon: "progress" },

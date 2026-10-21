@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import type { NavItem } from "@/components/nav-links";
 import { TenantSwitcher } from "@/components/staff/tenant-switcher";
+import { brandFor } from "@/lib/server/branding";
 import { requireStaff } from "@/lib/server/staff";
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -22,7 +23,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     );
   }
   return (
-    <AppShell viewer={staff.viewer} nav={nav} wide>
+    <AppShell viewer={staff.viewer} nav={nav} brand={await brandFor(staff.tenantId)} wide>
       {staff.isPlatformAdmin && <TenantSwitcher tenants={staff.tenants} current={staff.tenantId} />}
       {children}
     </AppShell>

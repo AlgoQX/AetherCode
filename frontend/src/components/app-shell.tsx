@@ -2,14 +2,16 @@ import Link from "next/link";
 import { AccountMenu } from "@/components/account-menu";
 import { Brand } from "@/components/brand";
 import { NavLinks, type NavItem } from "@/components/nav-links";
+import { accentStyle } from "@/lib/branding";
+import type { Brand as CollegeBrand } from "@/lib/server/branding";
 import type { Viewer } from "@/lib/viewer";
 
-export function AppShell({ viewer, nav, wide = false, children }: { viewer: Viewer; nav: NavItem[]; wide?: boolean; children: React.ReactNode }) {
+export function AppShell({ viewer, nav, brand, wide = false, children }: { viewer: Viewer; nav: NavItem[]; brand?: CollegeBrand; wide?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex min-h-dvh" style={brand?.color ? accentStyle(brand.color) : undefined}>
       <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col bg-sidebar lg:flex print:hidden">
         <Link href="/" className="flex h-14 items-center px-4">
-          <Brand />
+          <Brand brand={brand} />
         </Link>
         <nav aria-label="Main" className="flex-1 px-2.5 pt-2">
           <NavLinks items={nav} />
@@ -22,7 +24,7 @@ export function AppShell({ viewer, nav, wide = false, children }: { viewer: View
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-canvas/90 px-4 backdrop-blur lg:hidden print:hidden">
           <Link href="/">
-            <Brand />
+            <Brand brand={brand} />
           </Link>
           <AccountMenu viewer={viewer} compact />
         </header>

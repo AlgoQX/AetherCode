@@ -25,6 +25,27 @@ pnpm typecheck && pnpm lint && pnpm build
 |---|---|
 | `GATEWAY_URL` | Where the Next.js server reaches the gateway (`http://gateway:8080` in Compose). |
 | `PUBLIC_ORIGIN` | The origin students load the site from. Must equal the gateway's `GATEWAY_SEB_PUBLIC_ORIGIN`. Mutating `/api` requests must carry it as `Origin`. |
+| `BRANDING_FILE` | Optional. A JSON file of per-college branding (ADR-0045). |
+
+### Branding
+
+`BRANDING_FILE` points at a JSON file; logos are files beside it. The server
+re-reads it when it changes.
+
+```json
+{
+  "default": { "name": "AetherCode" },
+  "tenants": {
+    "018f4b0d-08f8-7c09-9ba7-efdf9c220001": { "name": "St. Joseph's", "color": "#2563eb", "logo": "sjc.png" }
+  }
+}
+```
+
+A college's entry overrides `default`. `color` must be a `#rrggbb` mid-tone
+that reads on both the light and the dark canvas (relative luminance 0.12 to
+0.30); a colour outside that range, or a logo name with a path, is dropped
+with a warning in the server log. `logo` is a png, jpg, webp or svg file name
+in the same directory. The sign-in page keeps the AetherCode mark.
 
 `pnpm build` emits `.next/standalone`; copy `public/` and `.next/static/` beside
 `server.js` and run `node server.js`.

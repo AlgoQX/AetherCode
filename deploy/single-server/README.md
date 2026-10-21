@@ -153,6 +153,12 @@ Set `QBANK_REQUIRE_REVIEW=true` in `.env` to make publishing a question need
 a review request from another member of staff (ADR-0044). It is off by
 default, so a college with one author is not blocked.
 
+## College branding
+
+Put `branding.json` and the logo files in `deploy/single-server/branding/`
+(see `frontend/README.md`, "Branding"). The frontend picks changes up without a
+restart. Without the file the UI keeps the AetherCode name and colours.
+
 ## Backups
 
 Two services write to `deploy/single-server/backups/` (gitignored):
