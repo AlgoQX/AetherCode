@@ -102,6 +102,44 @@ college's ZITADEL (ADR-0042), tested against a real ZITADEL. It goes live
 once ZITADEL's argon2 verifier, an OIDC app and a service-user token are in
 place (`deploy/single-server/README.md`, "Single sign-on").
 
+
+Done 2026-10-21 in code, tested on the campus server's scratch checkout and
+pushed, **not yet deployed**:
+- M8 tooling: `make engine-check` (Engine OK on the campus stack),
+  `make loadtest` (written, not yet run at 1000 students), and v1's browser
+  spec ported (`pnpm e2e`, Playwright 1.63.0).
+- Staff operations (ADR-0043): analytics page, grading queue on System
+  status, audit log of staff actions, staff list with a roles editor and bulk
+  mentor assignment.
+- Fix: the exam list carries each exam's latest version (assessment
+  `000033`), so the staff exams page no longer exceeds the per-user rate limit.
+
+### Pending (2026-10-21)
+
+Needs the owner:
+1. Cloudflare: the public `aethercode.stjosephsplacements.in` still routes to
+   v1, and `exam.stjosephsplacements.in` has no public hostname. Point
+   `aethercode.` at the campus tunnel (nginx :80) and add `exam.` for v1.
+2. Deploy the 2026-10-21 batch: user `000029`, submission `000035`,
+   assessment `000033`; rebuild identity, user, submission, assessment and
+   frontend; back up first and run `smoke.py`.
+3. Single sign-on (ADR-0042): approve ZITADEL's argon2 verifier, create the
+   OIDC app and the service-user token, then set `IDENTITY_SSO_*` and
+   `AETHERCODE_SSO=on`.
+4. v1's FAQ page publishes the Safe Exam Browser quit password; remove it or
+   change the password.
+5. Monitoring and alerts, deploys from CI, off-server backups (credentials
+   and a destination needed).
+
+Still to build:
+- Rerun `pnpm e2e` after the exam-list fix (it stopped at the teacher's
+  release step on the rate limit) and run `make loadtest` at 1000 students.
+- Exam calendar; question review queue before use; per-college branding.
+- Staff preview by taking an exam (needs preview attempts in Submission).
+- Content: blogs, contests, hackathons, open source, interview experiences.
+- Student profile and coding-platform stats, planned for the student ERP
+  with Placement Readiness and the LMS behind the same sign-on.
+
 ---
 
 ## Phase 0: Run the platform on one server (≈3 days)
