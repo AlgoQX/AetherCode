@@ -176,7 +176,7 @@ var routes = map[string]route{
 	},
 	"notification": {
 		Audience: "aether_notification", ActionPrefix: "notification", ResourcePrefix: "notification",
-		Resources: resourceSet("recipient_preferences", "notifications", "provider_idempotency_records", "delivery_attempts"),
+		Resources: resourceSet("recipient_preferences", "notifications", "provider_idempotency_records", "delivery_attempts", "community", "community_moderation"),
 	},
 	"analytics": {
 		Audience: "aether_analytics", ActionPrefix: "analytics", ResourcePrefix: "analytics",
@@ -437,11 +437,12 @@ func assignmentApplies(
 			// assignment/attempt to authz.current_context_actor_id() in its own
 			// database procedure; this avoids a cross-service direct lookup.
 			return request.ResourceID == assignment.ScopeID
-		case "recipient_preferences", "notifications":
+		case "recipient_preferences", "notifications", "community":
 			// Notification's /me routes use the bearer subject as resource ID and
 			// bind reads/writes to authz.current_context_actor_id() locally. This
 			// prevents a self policy from becoming access to another recipient's
-			// opaque notification ID.
+			// opaque notification ID. Community content (ADR-0048) binds the
+			// same way; only staff ever hold community_moderation.
 			return request.ResourceID == assignment.ScopeID
 		case "practice_submissions":
 			// Practice routes authorize with the bearer subject; Question Bank

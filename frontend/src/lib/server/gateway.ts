@@ -17,7 +17,7 @@ export class GatewayError extends Error {
 }
 
 type Options = {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Send without the session's bearer (login). */
   anonymous?: boolean;

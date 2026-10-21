@@ -102,3 +102,8 @@ export function isoToCollegeTime(iso: string): string {
 export function formatScoreText(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
 }
+
+/** A task is overdue when it is not done and its due time has passed. */
+export function isOverdue(dueAt: string | null, done: boolean): boolean {
+  return !done && dueAt !== null && Date.parse(dueAt) < Date.now();
+}

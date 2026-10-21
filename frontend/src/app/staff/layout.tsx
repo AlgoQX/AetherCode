@@ -11,6 +11,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     { href: "/staff/exams", label: "Exams", icon: "exams" },
     { href: "/staff/calendar", label: "Calendar", icon: "calendar" },
     { href: "/staff/questions", label: "Questions", icon: "questions" },
+    { href: "/staff/community", label: "Community", icon: "community" },
     { href: "/staff/analytics", label: "Analytics", icon: "analytics" },
   ];
   if (staff.canManageAccounts) {

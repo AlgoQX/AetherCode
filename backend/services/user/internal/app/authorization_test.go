@@ -519,3 +519,45 @@ func TestStaffWritesAreAudited(t *testing.T) {
 		t.Fatalf("faculty reading the audit log = %#v, %v; want denied", decision, err)
 	}
 }
+
+func TestStudentsUseCommunityContentButNeverModeration(t *testing.T) {
+	t.Parallel()
+	keyring, err := centralauthz.ParseKeyring(`[{"audience":"aether_notification","key_id":"` + testKeyID + `","secret_base64":"` + base64.StdEncoding.EncodeToString([]byte(strings.Repeat("n", 32))) + `"}]`)
+	if err != nil {
+		t.Fatalf("ParseKeyring() error = %v", err)
+	}
+	student := Assignment{Role: centralauthz.RoleStudent, ScopeKind: "self", TenantID: testTenant, ScopeID: testPrincipal}
+	service, err := NewService(fakeStore{snapshot: Snapshot{
+		Revision:    3,
+		Assignments: []Assignment{student},
+		PolicyRules: []centralauthz.PolicyRule{
+			{PType: "p", Values: []string{"student", "self", "/community/:id", "read"}},
+			{PType: "p", Values: []string{"student", "self", "/community/:id", "write"}},
+		},
+	}}, keyring, nil, false)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.now = func() time.Time { return time.Date(2026, time.October, 21, 12, 0, 0, 0, time.UTC) }
+	request := Request{PrincipalID: testPrincipal, TenantID: testTenant, RequestID: testRequestID,
+		Action: "write", ResourceType: "community", ResourceID: testPrincipal, TargetService: "notification"}
+
+	if decision, err := service.Authorize(context.Background(), request); err != nil || !decision.Allowed {
+		t.Fatalf("Authorize(own community write) = %#v, %v; want allowed", decision, err)
+	}
+	other := request
+	other.ResourceID = "018f4b0d-08f8-7c09-9ba7-efdf9c229999"
+	if decision, err := service.Authorize(context.Background(), other); err != nil || decision.Allowed {
+		t.Fatalf("Authorize(community as another person) = %#v, %v; want denied", decision, err)
+	}
+	moderation := request
+	moderation.ResourceType = "community_moderation"
+	moderation.ResourceID = testTenant
+	if decision, err := service.Authorize(context.Background(), moderation); err != nil || decision.Allowed {
+		t.Fatalf("Authorize(student moderation) = %#v, %v; want denied", decision, err)
+	}
+	moderation.ResourceID = testPrincipal
+	if decision, err := service.Authorize(context.Background(), moderation); err != nil || decision.Allowed {
+		t.Fatalf("Authorize(student moderation as self) = %#v, %v; want denied", decision, err)
+	}
+}

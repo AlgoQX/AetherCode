@@ -487,3 +487,58 @@ export type AuditEntry = {
   resource_id: string;
   allowed: boolean;
 };
+
+/** Community content, served by the notification service (ADR-0048). */
+export type InterviewRound = { title: string; description?: string };
+
+export type InterviewExperience = {
+  id: string;
+  company: string;
+  role: string;
+  experience_level: "intern" | "fresher" | "experienced";
+  drive_type: "on-campus" | "off-campus" | "pool-campus";
+  package_offered: string | null;
+  year_of_interview: number | null;
+  preparation_resources: string | null;
+  rounds: InterviewRound[];
+  verdict: "selected" | "rejected" | "waitlisted";
+  tips: string | null;
+  status: "pending" | "approved" | "rejected";
+  review_note: string | null;
+  mine: boolean;
+  created_at: string;
+  /** Only staff see who wrote it. */
+  author_id: string | null;
+};
+
+export type CommunityPost = {
+  id: string;
+  title: string;
+  tags: string[];
+  status: "draft" | "published";
+  published_at: string | null;
+  updated_at: string;
+  excerpt: string;
+  body_markdown?: string;
+};
+
+export type FeedKind = "contest" | "hackathon" | "opensource";
+
+export type FeedItem = {
+  id: string;
+  kind: FeedKind;
+  title: string;
+  description: string | null;
+  url: string;
+  platform: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  tags: string[];
+  bookmarked: boolean;
+  phase: "upcoming" | "live" | "ended";
+};
+
+export type PlatformName = "leetcode" | "github" | "codeforces" | "codechef" | "hackerrank";
+export type ProfileLink = { platform: PlatformName; handle: string };
+
+export type PersonalTask = { id: string; title: string; due_at: string | null; done: boolean };
