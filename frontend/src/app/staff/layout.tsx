@@ -8,6 +8,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   const nav: NavItem[] = [
     { href: "/staff", label: "Overview", icon: "home" },
     { href: "/staff/exams", label: "Exams", icon: "exams" },
+    { href: "/staff/calendar", label: "Calendar", icon: "calendar" },
     { href: "/staff/questions", label: "Questions", icon: "questions" },
     { href: "/staff/analytics", label: "Analytics", icon: "analytics" },
   ];
