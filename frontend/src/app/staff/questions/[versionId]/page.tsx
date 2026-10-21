@@ -42,6 +42,9 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
   // A multiple-choice draft has no languages until its options are saved (ADR-0035).
   const choice = version.kind === "mcq" || version.supported_languages.length === 0;
   const ready = choice ? version.kind === "mcq" : version.sample_test_case_count > 0 && version.hidden_test_case_count > 0;
+  // A coding question is published only after a model solution passed every test (ADR-0047).
+  const verified = checks.some((check) => check.lifecycle_state === "completed" && check.verdict === "accepted" && check.current);
+  const canPublish = ready && (choice || verified);
   return (
     <>
       <Link href="/staff/questions" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
@@ -101,20 +104,22 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
               <Section
                 title="Publish"
                 description={
-                  ready
+                  canPublish
                     ? "Published questions cannot be edited; you can start a new draft version later."
+                    : ready
+                      ? "Run a model solution on every test in the check below. It must pass all of them, hidden tests included, before this question can be published. Changing the tests asks for a new check."
                     : choice
                       ? "Save the options and the correct answer first."
                       : "Save at least one sample and one hidden test first."
                 }
               >
-                {ready && !requireReview && (
+                {canPublish && !requireReview && (
                   <ActionForm action={publishQuestion} submitLabel="Publish question">
                     <input type="hidden" name="version_id" value={version.id} />
                     <input type="hidden" name="expected_version" value={version.version} />
                   </ActionForm>
                 )}
-                {ready && requireReview && !version.review_requested_at && (
+                {canPublish && requireReview && !version.review_requested_at && (
                   <>
                     <p className="mb-3 text-sm text-ink-muted">A different member of staff has to approve this question before it is published.</p>
                     <ActionForm action={requestReview} submitLabel="Ask for a review">
@@ -123,10 +128,10 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
                     </ActionForm>
                   </>
                 )}
-                {ready && requireReview && version.review_requested_at && version.review_requested_by === staff.viewer.principalId && (
+                {canPublish && requireReview && version.review_requested_at && version.review_requested_by === staff.viewer.principalId && (
                   <p className="text-sm text-ink-muted">Waiting for another member of staff to review it. If you change it, ask again.</p>
                 )}
-                {ready && requireReview && version.review_requested_at && version.review_requested_by !== staff.viewer.principalId && (
+                {canPublish && requireReview && version.review_requested_at && version.review_requested_by !== staff.viewer.principalId && (
                   <>
                     <p className="mb-3 text-sm text-ink-muted">Read the statement and tests, then approve. Approving publishes this version.</p>
                     <ActionForm action={publishQuestion} submitLabel="Approve and publish">

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -304,8 +305,7 @@ func TestSetQuestionVersionTests(t *testing.T) {
 		})
 	}
 
-	// Manifests exist but the evaluation bundle columns are still NULL, so
-	// publication must be refused by the status/bundle CHECK.
+	// Manifests exist but there is no passing model check yet (ADR-0047).
 	for _, kind := range []string{"sample", "hidden"} {
 		_, err = pool.Exec(ctx, `
 			INSERT INTO qbank.test_case_manifests
@@ -314,7 +314,7 @@ func TestSetQuestionVersionTests(t *testing.T) {
 			questionVersionID, kind, actorID)
 		require.NoError(t, err)
 	}
-	requirePgCode(t, publish(1), "23514")
+	requirePgCode(t, publish(1), "55000")
 	_, err = pool.Exec(ctx, `DELETE FROM qbank.test_case_manifests WHERE question_version_id = $1`, questionVersionID)
 	require.NoError(t, err)
 
@@ -366,6 +366,21 @@ func TestSetQuestionVersionTests(t *testing.T) {
 	require.NoError(t, err)
 	_, err = repository.ResolvePublishedQuestionVersion(ctx, questionVersionID.String())
 	require.ErrorContains(t, err, "not found", "a draft does not resolve")
+
+	// Publishing needs a completed, all-accepted model check on the current tests.
+	addCheck := func(verdict, checksum string) {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO qbank.model_checks (id, question_version_id, language_key, source_object_key, source_checksum,
+			    source_key_reference, requested_by, lifecycle_state, verdict, units, completed_at, bundle_checksum)
+			VALUES (gen_random_uuid(), $1, 'python3', 's', repeat('e', 64), 'k', $2, 'completed', $3, '[]'::jsonb, now(), $4)`,
+			questionVersionID, actorID, verdict, checksum)
+		require.NoError(t, err)
+	}
+	addCheck("accepted", strings.Repeat("f", 64)) // ran on other tests
+	requirePgCode(t, publish(3), "55000")
+	addCheck("wrong_answer", strings.Repeat("a", 64))
+	requirePgCode(t, publish(3), "55000")
+	addCheck("accepted", strings.Repeat("a", 64))
 
 	// With both bundles recorded the version publishes, then is fully immutable.
 	require.NoError(t, publish(3))

@@ -64,6 +64,18 @@ async function setUp(): Promise<Setup> {
       { input: "1\n", expected_output: "1\n", sample: false },
     ],
   }, admin);
+  // Publishing needs a model solution that passes every test (ADR-0047).
+  const checks = `/question-bank/v1/question-versions/${version.id}/model-checks`;
+  await call("POST", checks, { language: "python3", source: "n = int(input())\nprint(n * (n + 1) // 2)\n" }, admin, 202);
+  for (let tries = 0; ; tries++) {
+    const done = await call<{ lifecycle_state: string; verdict: string | null }[]>("GET", checks, undefined, admin);
+    if (done[0] && done[0].lifecycle_state !== "queued") {
+      if (done[0].verdict !== "accepted") throw new Error(`the model solution failed: ${JSON.stringify(done[0])}`);
+      break;
+    }
+    if (tries > 60) throw new Error("the model-solution check never finished");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
   await call("POST", `/question-bank/v1/question-versions/${version.id}/publish`, { expected_question_version: version.version }, admin);
 
   const policy = await call<{ id: string; version: number }>("POST", `/assessment/v1/tenants/${tenant}/proctor-policies`, { name: `E2E ${run}` }, admin, 201);

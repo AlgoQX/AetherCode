@@ -98,6 +98,15 @@ def setup():
     }, token=admin, expect=201)
     version = call("PUT", f"/question-bank/v1/question-versions/{question['question_version']['id']}/tests",
                    {"expected_question_version": question["question_version"]["version"], "tests": TESTS}, token=admin, expect=200)
+    # Publishing needs a model solution that passes every test (ADR-0047).
+    checks = f"/question-bank/v1/question-versions/{version['id']}/model-checks"
+    call("POST", checks, {"language": "python3", "source": "n = int(input())\nprint(n * (n + 1) // 2)\n"}, token=admin, expect=202)
+    for _ in range(60):
+        done = call("GET", checks, token=admin, expect=200)
+        if done and done[0]["lifecycle_state"] != "queued":
+            break
+        time.sleep(1)
+    assert done and done[0]["verdict"] == "accepted", done
     call("POST", f"/question-bank/v1/question-versions/{version['id']}/publish", {"expected_question_version": version["version"]}, token=admin, expect=200)
 
     policy = call("POST", f"/assessment/v1/tenants/{tenant}/proctor-policies", {"name": f"Load test {RUN}"}, token=admin, expect=201)

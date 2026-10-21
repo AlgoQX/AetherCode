@@ -492,7 +492,13 @@ func mapCommandError(err error, operation string) error {
 			return apperrors.New(apperrors.CodeNotFound, "question resource was not found")
 		case "42501":
 			return apperrors.New(apperrors.CodeForbidden, "authorization context does not permit this operation")
-		case "23505", "40001", "55000":
+		case "55000":
+			// Publishing rules are written for the author to read (ADR-0044, ADR-0047).
+			if strings.HasPrefix(postgresError.Message, "run a model solution") || strings.HasPrefix(postgresError.Message, "ask for a review") {
+				return apperrors.New(apperrors.CodeConflict, postgresError.Message)
+			}
+			return apperrors.New(apperrors.CodeConflict, "question resource changed or conflicts with an immutable state")
+		case "23505", "40001":
 			return apperrors.New(apperrors.CodeConflict, "question resource changed or conflicts with an immutable state")
 		case "22023", "22P02", "23514":
 			return apperrors.New(apperrors.CodeInvalidArgument, "question command is invalid")

@@ -446,6 +446,8 @@ export type ModelCheck = {
   units: { unit_number: number; verdict: string; weight: number; time_ms?: number }[];
   requested_at: string;
   completed_at: string | null;
+  /** True when it ran on the version's tests as they are now (ADR-0047). */
+  current?: boolean;
 };
 
 /** One kind of Judge work in GET /submission/v1/tenants/{t}/grading-queue (ADR-0043). */

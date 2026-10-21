@@ -45,7 +45,9 @@ Both endpoints return `{"items": [...], "next_cursor": "..."}`. An absent
 2. `PUT /v1/question-versions/{id}/tests` replaces all tests of the draft from
    plaintext (see below). Add encrypted assets and replace tags while the
    version remains draft.
-3. `POST /v1/question-versions/{id}/publish` publishes only when the sample and
+3. `POST /v1/question-versions/{id}/publish` publishes only when a model
+   solution has passed every test on the current tests (ADR-0047; run it with
+   `POST …/model-checks`, multiple choice is exempt) and the sample and
    hidden manifests and the evaluation bundle exist. The publication trigger and immutable-version
    trigger enforce this in PostgreSQL, not only in HTTP code.
    With `QBANK_REQUIRE_REVIEW=true` the author first calls

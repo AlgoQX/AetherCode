@@ -120,6 +120,8 @@ frontend build, **not yet deployed or run on the campus stack**:
 - Question review before use (ADR-0044): question-bank `000019`,
   `QBANK_REQUIRE_REVIEW` (off by default), "To review" queue.
 - Per-college name, colour and logo from a mounted file (ADR-0045).
+- A coding question publishes only after a model solution passes every test
+  (ADR-0047, question-bank `000020`); integration-tested on PostgreSQL 16.
 - Staff try an exam as a student in a private copy (ADR-0046); the
   `smoke.py` check for it has not been run.
 
@@ -130,7 +132,7 @@ Needs the owner:
    v1, and `exam.stjosephsplacements.in` has no public hostname. Point
    `aethercode.` at the campus tunnel (nginx :80) and add `exam.` for v1.
 2. Deploy the 2026-10-21 batch: user `000029`, submission `000035`,
-   assessment `000033`, question-bank `000019`; rebuild identity, user,
+   assessment `000033`, question-bank `000019` and `000020`; rebuild identity, user,
    submission, assessment, question-bank and frontend; back up first and run
    `smoke.py`. Optionally set `QBANK_REQUIRE_REVIEW=true`.
 3. Single sign-on (ADR-0042): approve ZITADEL's argon2 verifier, create the

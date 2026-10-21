@@ -168,6 +168,10 @@ assert status == 403, status
 _, exported, _ = call("GET", f"/question-bank/v1/question-versions/{version_id}/export", token=admin, expect=200)
 assert exported["format"] == "aethercode.question.v1" and any(not test["sample"] for test in exported["tests"]), exported
 ok("only administrators export a question, hidden tests included (ADR-0032)")
+status, refused, _ = call("POST", f"/question-bank/v1/question-versions/{version_id}/publish",
+                           {"expected_question_version": version["version"]}, token=faculty)
+assert status == 409 and "model solution" in json.dumps(refused), (status, refused)
+ok("a question cannot be published before a model solution passes every test (ADR-0047)")
 checks_path = f"/question-bank/v1/question-versions/{version_id}/model-checks"
 call("POST", checks_path, {"language": "python3", "source": "a, b = map(int, input().split())\nprint(a + b)\n"}, token=faculty, expect=202)
 for _ in range(60):
