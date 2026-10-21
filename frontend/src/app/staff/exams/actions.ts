@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/staff/form";
 import type { Exam, ExamVersion, ExamVersionContent, Page, ProctorPolicy, ProctorPolicyVersion, QuestionVersion } from "@/lib/api-types";
 import { actionError } from "@/lib/server/actions";
+import { PREVIEW_PREFIX, copyExam } from "@/lib/server/exams";
 import { gateway } from "@/lib/server/gateway";
 import { requireCollege } from "@/lib/server/staff";
 import { collegeTimeToISO } from "@/lib/utils";
@@ -168,58 +169,52 @@ export async function saveSebPolicy(_previous: ActionState, form: FormData): Pro
  */
 export async function duplicateExam(_previous: ActionState, form: FormData): Promise<ActionState> {
   const { tenantId } = await requireCollege();
-  const base = `/assessment/v1/tenants/${tenantId}`;
   let examId: string;
   try {
-    const sourceId = String(form.get("version_id"));
-    const [source, content] = await Promise.all([
-      gateway<ExamVersion>(`${base}/exam-versions/${sourceId}`),
-      gateway<ExamVersionContent>(`${base}/exam-versions/${sourceId}/content`),
-    ]);
     const opensAt = collegeTimeToISO(String(form.get("opens_at")));
     const closesAt = collegeTimeToISO(String(form.get("closes_at")));
     if (Date.parse(closesAt) <= Date.parse(opensAt)) return { error: "The window must close after it opens." };
-    const exam = await gateway<Exam>(`${base}/exams`, { method: "POST", body: {} });
-    const copy = await gateway<ExamVersion>(`${base}/exams/${exam.id}/versions`, {
-      method: "POST",
-      body: {
-        expected_exam_version: exam.version,
-        title: String(form.get("title") ?? "").trim(),
-        instructions_markdown: source.instructions_markdown,
-        opens_at: opensAt,
-        closes_at: closesAt,
-        duration_seconds: source.duration_seconds,
-        proctor_policy_version_id: source.proctor_policy_version_id,
-      },
-    });
-    const copyBase = `${base}/exam-versions/${copy.id}`;
-    // Every content change bumps the version's content_version.
-    let contentVersion = copy.content_version;
-    for (const section of [...content.sections].sort((a, b) => a.position - b.position)) {
-      const created = await gateway<{ id: string }>(`${copyBase}/sections`, {
-        method: "POST",
-        body: {
-          expected_content_version: contentVersion++,
-          position: section.position,
-          title: section.title,
-          instructions_markdown: "",
-          time_limit_seconds: null,
-          draw_count: section.draw_count,
-        },
-      });
-      for (const item of [...section.items].sort((a, b) => a.position - b.position)) {
-        await gateway(`${copyBase}/sections/${created.id}/items`, {
-          method: "POST",
-          body: { expected_content_version: contentVersion++, position: item.position, question_version_id: item.question_version_id, maximum_score: item.maximum_score },
-        });
-      }
-    }
-    examId = exam.id;
+    const title = String(form.get("title") ?? "").trim();
+    if (title.startsWith(PREVIEW_PREFIX)) return { error: "That title is reserved for previews." };
+    examId = (await copyExam(tenantId, String(form.get("version_id")), title, opensAt, closesAt)).exam.id;
   } catch (error) {
     return { error: error instanceof Error && !("status" in error) ? error.message : actionError(error) };
   }
   revalidatePath("/staff/exams");
   redirect(`/staff/exams/${examId}`);
+}
+
+/**
+ * Lets staff take an exam as a student (ADR-0046): a private copy, open from
+ * now for the exam's duration plus ten minutes, assigned to the caller alone.
+ * The real exam's attempts, results and statistics are untouched.
+ */
+export async function tryExam(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const { tenantId, viewer } = await requireCollege();
+  const base = `/assessment/v1/tenants/${tenantId}`;
+  let target: string;
+  try {
+    const source = await gateway<ExamVersion>(`${base}/exam-versions/${String(form.get("version_id"))}`);
+    // The service accepts a window that opened at most a minute ago.
+    const opensAt = new Date(Date.now() - 20_000).toISOString();
+    const closesAt = new Date(Date.now() + (source.duration_seconds + 600) * 1000).toISOString();
+    const { exam, version } = await copyExam(tenantId, source.id, `${PREVIEW_PREFIX}${source.title}`, opensAt, closesAt);
+    const copyBase = `${base}/exam-versions/${version.id}`;
+    const draft = await gateway<ExamVersion>(copyBase);
+    await gateway(`${copyBase}/publish`, { method: "POST", body: { expected_content_version: draft.content_version } });
+    const rule = await gateway<{ id: string }>(`${copyBase}/assignment-rules`, {
+      method: "POST",
+      body: { target_type: "student", target_id: viewer.principalId, available_from: opensAt, available_until: closesAt, accommodations: {} },
+    });
+    const assignment = await gateway<{ id: string }>(`${base}/assignment-rules/${rule.id}/candidate-assignments`, {
+      method: "POST",
+      body: { candidate_id: viewer.principalId },
+    });
+    target = `/staff/exams/${exam.id}/try/${assignment.id}`;
+  } catch (error) {
+    return { error: error instanceof Error && !("status" in error) ? error.message : actionError(error) };
+  }
+  redirect(target);
 }
 
 /** A pool section: each student gets draw_count of its questions (ADR-0034). */

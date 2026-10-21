@@ -134,7 +134,6 @@ Needs the owner:
 Still to build:
 - Rerun `pnpm e2e` after the exam-list fix (it stopped at the teacher's
   release step on the rate limit) and run `make loadtest` at 1000 students.
-- Staff preview by taking an exam (needs preview attempts in Submission).
 - Content: blogs, contests, hackathons, open source, interview experiences.
 - Student profile and coding-platform stats, planned for the student ERP
   with Placement Readiness and the LMS behind the same sign-on.

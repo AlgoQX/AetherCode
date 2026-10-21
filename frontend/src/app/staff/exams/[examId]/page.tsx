@@ -11,7 +11,7 @@ import { latestVersion } from "@/lib/server/exams";
 import { GatewayError, gateway } from "@/lib/server/gateway";
 import { requireCollege } from "@/lib/server/staff";
 import { formatDuration, formatScoreText, formatWindow, isoToCollegeTime } from "@/lib/utils";
-import { addPool, addQuestion, duplicateExam, publishExam, regradeItem, saveSebPolicy } from "../actions";
+import { addPool, addQuestion, duplicateExam, publishExam, regradeItem, saveSebPolicy, tryExam } from "../actions";
 import { AssignForm } from "./assign-form";
 import { MoveWindow } from "./move-window";
 
@@ -301,6 +301,19 @@ export default async function ExamPage({ params }: { params: Promise<{ examId: s
               </Panel>
             ))}
           </div>
+        </Section>
+      )}
+
+      {!draft && (
+        <Section
+          title="Try as a student"
+          description="Sit this exam yourself in a private copy, open for its duration plus ten minutes. Its answers and marks never reach this exam's results or the college statistics."
+        >
+          <Panel className="p-5">
+            <ActionForm action={tryExam} submitLabel="Try this exam">
+              <input type="hidden" name="version_id" value={version.id} />
+            </ActionForm>
+          </Panel>
         </Section>
       )}
 

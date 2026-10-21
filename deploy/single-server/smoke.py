@@ -513,3 +513,36 @@ status, _, _ = call("GET", attempt_path, token=student, headers=seb_headers(atte
 assert status == 403, status
 ok("a hash for another URL or another key is refused")
 print("ALL M4 CHECKS PASSED")
+
+# --- Staff try an exam as a student (ADR-0046) ---------------------------
+base = f"/assessment/v1/tenants/{tenant}"
+_, preview_exam, _ = call("POST", f"{base}/exams", {}, token=faculty, expect=201)
+preview_opens = time.time() - 20
+_, preview_version, _ = call("POST", f"{base}/exams/{preview_exam['id']}/versions", {
+    "expected_exam_version": preview_exam["version"], "title": "[Preview] Smoke test", "instructions_markdown": "Solve it.",
+    "opens_at": iso(preview_opens), "closes_at": iso(time.time() + 4200), "duration_seconds": 3600,
+    "proctor_policy_version_id": policy_version["id"]}, token=faculty, expect=201)
+preview_path = f"{base}/exam-versions/{preview_version['id']}"
+preview_content = lambda: call("GET", preview_path, token=faculty, expect=200)[1]["content_version"]
+_, preview_section, _ = call("POST", f"{preview_path}/sections", {"expected_content_version": preview_content(), "position": 1,
+                             "title": "Coding", "instructions_markdown": "", "time_limit_seconds": None}, token=faculty, expect=201)
+call("POST", f"{preview_path}/sections/{preview_section['id']}/items", {"expected_content_version": preview_content(), "position": 1,
+     "question_version_id": version_id, "maximum_score": "10"}, token=faculty, expect=201)
+call("POST", f"{preview_path}/publish", {"expected_content_version": preview_content()}, token=faculty, expect=200)
+_, preview_rule, _ = call("POST", f"{preview_path}/assignment-rules", {"target_type": "student", "target_id": faculty_id,
+                          "available_from": preview_version["opens_at"], "available_until": preview_version["closes_at"], "accommodations": {}},
+                          token=faculty, expect=201)
+_, preview_assignment, _ = call("POST", f"{base}/assignment-rules/{preview_rule['id']}/candidate-assignments",
+                                {"candidate_id": faculty_id}, token=faculty, expect=201)
+for _ in range(15):
+    _, mine, _ = call("GET", f"{base}/candidate-assignments", token=faculty, expect=200)
+    if any(a["id"] == preview_assignment["id"] for a in mine["items"]):
+        break
+    time.sleep(2)
+else:
+    sys.exit(f"FAIL staff never received their private copy: {mine}")
+_, preview_attempt, _ = call("POST", attempts, {"candidate_assignment_id": preview_assignment["id"]}, token=faculty, expect=201)
+_, preview_paper, _ = call("GET", f"{attempts}/{preview_attempt['id']}/paper", token=faculty, expect=200)
+assert preview_paper["title"] == "[Preview] Smoke test" and len(preview_paper["items"]) == 1, preview_paper
+ok("staff start and read a private copy of an exam as a student")
+print("ALL PREVIEW CHECKS PASSED")
