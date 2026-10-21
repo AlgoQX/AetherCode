@@ -236,6 +236,29 @@ docker compose up -d seb                  # accepts Gateway's client_ip (ADR-003
 docker compose up -d                      # everything else, User included
 ```
 
+### Release checklist for the 2026-10-21 batch
+
+1. **Back up first**, and confirm the dump restores (`backup.sh`; see Backups).
+2. `git pull && docker compose build`. The new migrations are user `000029`
+   and `000030`, submission `000035`, assessment `000033`, question-bank
+   `000019` to `000021` and notification `000013`. None changes an event, so
+   the consumer-first order above is not needed; run `docker compose up -d`.
+3. Check the `migrate` one-shot exited 0 (`docker compose ps migrate`,
+   `docker compose logs migrate`) before judging anything else.
+4. `python3 smoke.py`. It now also checks that publishing needs a passing
+   model solution (ADR-0047), community-free paths, and a staff member trying
+   an exam (ADR-0046).
+5. In a browser as a student: sign in, open Contests, Interviews, Blogs and
+   My profile; as faculty: Community, Calendar and a question with a passing
+   model check. A 403 on a Community page means the User service has not
+   picked up migration `000030` yet.
+6. Optional switches in `.env`: `QBANK_REQUIRE_REVIEW=true` (publishing needs
+   another member of staff); `deploy/single-server/branding/branding.json`
+   (see the College branding section).
+7. Rollback: every migration has a down file (`migrate --direction down` runs
+   all of them, so restore the backup instead if more than one step is
+   wrong). Redeploy the previous images from git.
+
 After every upgrade, run the end-to-end smoke test through the gateway:
 
 ```sh
