@@ -18,12 +18,13 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
   await requireStaff();
   const tab = (await searchParams).tab;
   const drafts = tab === "drafts";
+  const review = tab === "review";
   const practice = tab === "practice";
   let questions: QuestionDetail[];
   try {
-    questions = (await gateway<Page<QuestionDetail>>(`/question-bank/v1/questions?limit=100${drafts ? "&status=draft" : ""}`)).items;
+    questions = (await gateway<Page<QuestionDetail>>(`/question-bank/v1/questions?limit=100${drafts ? "&status=draft" : review ? "&status=review" : ""}`)).items;
     // Practice problems are published questions marked for practice (ADR-0041).
-    if (!drafts) questions = questions.filter(({ question }) => (question.audience === "practice") === practice);
+    if (!drafts && !review) questions = questions.filter(({ question }) => (question.audience === "practice") === practice);
   } catch (error) {
     return (
       <>
@@ -48,9 +49,10 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
       />
       <nav aria-label="Question lists" className="mb-4 flex gap-1.5">
         {[
-          { href: "/staff/questions", label: "Tests", active: !drafts && !practice },
+          { href: "/staff/questions", label: "Tests", active: !drafts && !practice && !review },
           { href: "/staff/questions?tab=practice", label: "Practice", active: practice },
           { href: "/staff/questions?tab=drafts", label: "My drafts", active: drafts },
+          { href: "/staff/questions?tab=review", label: "To review", active: review },
         ].map((tab) => (
           <Link
             key={tab.href}
@@ -66,7 +68,9 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
         <EmptyState>
           {drafts
             ? "You have no drafts."
-            : practice
+            : review
+              ? "Nothing is waiting for a review."
+              : practice
               ? "No practice problems yet. Open a published question and switch it to Practice."
               : "No published test questions yet. Write one and publish it."}
         </EmptyState>
@@ -84,8 +88,8 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
                   </p>
                 </div>
                 <Badge tone={DIFFICULTY_TONE[version.difficulty]}>{version.difficulty}</Badge>
-                {version.status === "draft" && <Badge>Draft v{version.version_number}</Badge>}
-                {drafts && question.audience === "practice" && <Badge tone="brand">Practice</Badge>}
+                {version.status === "draft" && <Badge>{version.review_requested_at ? "In review" : "Draft"} v{version.version_number}</Badge>}
+                {(drafts || review) && question.audience === "practice" && <Badge tone="brand">Practice</Badge>}
               </Link>
             </li>
           ))}

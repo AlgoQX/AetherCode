@@ -264,6 +264,7 @@ services:
       AUTHZ_CLIENT_TLS_KEY_FILE: /certs/question-bank.key
       QBANK_DATABASE_URL: postgres://aether_question_bank_app:${QBANK_DB_PASSWORD}@postgres:5432/aether_qbank?sslmode=disable
       QBANK_PROJECTION_DATABASE_URL: postgres://aether_question_bank_projection_worker:${QBANK_DB_PASSWORD}@postgres:5432/aether_qbank?sslmode=disable
+      QBANK_REQUIRE_REVIEW: ${QBANK_REQUIRE_REVIEW:-false}
       QBANK_STORAGE_ENDPOINT: minio:9000
       QBANK_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER}
       QBANK_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}

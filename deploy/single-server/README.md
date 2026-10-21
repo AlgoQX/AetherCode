@@ -147,6 +147,12 @@ always keeps working, so exams never depend on it. To turn it on:
 Every existing account is then copied to ZITADEL within minutes. Accounts
 the provider already has are linked, not duplicated.
 
+## Question review
+
+Set `QBANK_REQUIRE_REVIEW=true` in `.env` to make publishing a question need
+a review request from another member of staff (ADR-0044). It is off by
+default, so a college with one author is not blocked.
+
 ## Backups
 
 Two services write to `deploy/single-server/backups/` (gitignored):

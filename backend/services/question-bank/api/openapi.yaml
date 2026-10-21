@@ -35,9 +35,10 @@ paths:
           in: query
           description: >-
             draft lists the caller's own questions whose latest version is a
-            draft (the other filters do not apply); otherwise published
-            questions are listed.
-          schema: {type: string, enum: [published, draft]}
+            draft, and review lists drafts of any author waiting for a review,
+            oldest request first (the other filters do not apply); otherwise
+            published questions are listed.
+          schema: {type: string, enum: [published, draft, review]}
         - name: difficulty
           in: query
           schema: {type: string, enum: [easy, medium, hard]}
@@ -257,6 +258,51 @@ paths:
   /v1/question-versions/{question_version_id}/publish:
     post:
       operationId: publishQuestionVersion
+      parameters:
+        - {$ref: '#/components/parameters/QuestionVersionID'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expected_question_version]
+              properties:
+                expected_question_version: {type: integer, minimum: 1}
+      responses:
+        '200': {$ref: '#/components/responses/QuestionDetail'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /v1/review-policy:
+    get:
+      summary: Whether publishing needs a review (ADR-0044)
+      operationId: getReviewPolicy
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The policy.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [require_review]
+                properties:
+                  require_review: {type: boolean}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+  /v1/question-versions/{question_version_id}/request-review:
+    post:
+      summary: Ask for a review of a draft (ADR-0044)
+      description: >-
+        Marks the draft as waiting for review. When the deployment requires
+        reviews, publishing needs this, and the publisher must be a different
+        member of staff than the requester.
+      operationId: requestQuestionReview
       parameters:
         - {$ref: '#/components/parameters/QuestionVersionID'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
@@ -559,6 +605,8 @@ components:
         time_limit_ms: {type: integer}
         memory_limit_kib: {type: integer}
         status: {type: string, enum: [draft, published, retired]}
+        review_requested_at: {type: string, format: date-time}
+        review_requested_by: {type: string, format: uuid}
         published_at: {type: [string, 'null'], format: date-time}
         created_at: {type: string, format: date-time}
         version: {type: integer, minimum: 1}

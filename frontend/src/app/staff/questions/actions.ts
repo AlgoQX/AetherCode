@@ -74,6 +74,22 @@ export async function publishQuestion(_previous: ActionState, form: FormData): P
   return { error: null, message: "Published. Faculty in every college can now add it to exams." };
 }
 
+export async function requestReview(_previous: ActionState, form: FormData): Promise<ActionState> {
+  await requireStaff();
+  const versionId = String(form.get("version_id"));
+  try {
+    await gateway(`/question-bank/v1/question-versions/${versionId}/request-review`, {
+      method: "POST",
+      body: { expected_question_version: Number(form.get("expected_version")) },
+    });
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+  revalidatePath(`/staff/questions/${versionId}`);
+  revalidatePath("/staff/questions");
+  return { error: null, message: "Sent for review. Another member of staff can now approve it." };
+}
+
 /** Starts an editable draft from a published question, copying its content. */
 export async function draftNewVersion(_previous: ActionState, form: FormData): Promise<ActionState> {
   await requireStaff();

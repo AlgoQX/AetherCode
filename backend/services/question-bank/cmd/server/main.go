@@ -225,6 +225,9 @@ func run(contextValue context.Context) error {
 	if err != nil {
 		return err
 	}
+	if os.Getenv("QBANK_REQUIRE_REVIEW") == "true" {
+		questionBank.RequireReview()
+	}
 	if modelCheckRunner != nil {
 		modelCheckRunner.ReadOutputsWith(storageClient, kmsClient)
 		questionBank.UseModelChecks(modelCheckRunner)

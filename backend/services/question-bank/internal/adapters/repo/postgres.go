@@ -202,10 +202,20 @@ func (repository *Postgres) ReplaceQuestionVersionTags(contextValue context.Cont
 func (repository *Postgres) PublishQuestionVersion(contextValue context.Context, transaction pgx.Tx, command app.PublishQuestionVersion) (app.QuestionDetail, error) {
 	var raw json.RawMessage
 	err := transaction.QueryRow(contextValue, `
-		SELECT qbank.publish_question_version($1, $2, $3)
-	`, command.QuestionVersionID, command.EventID, command.ExpectedQuestionVersion).Scan(&raw)
+		SELECT qbank.publish_question_version($1, $2, $3, $4)
+	`, command.QuestionVersionID, command.EventID, command.ExpectedQuestionVersion, command.RequireReview).Scan(&raw)
 	if err != nil {
 		return app.QuestionDetail{}, mapCommandError(err, "publish question version")
+	}
+	return decodeQuestionDetail(raw)
+}
+
+func (repository *Postgres) RequestQuestionReview(contextValue context.Context, transaction pgx.Tx, command app.RequestQuestionReview) (app.QuestionDetail, error) {
+	var raw json.RawMessage
+	err := transaction.QueryRow(contextValue, `SELECT qbank.request_question_review($1, $2)`,
+		command.QuestionVersionID, command.ExpectedQuestionVersion).Scan(&raw)
+	if err != nil {
+		return app.QuestionDetail{}, mapCommandError(err, "request question review")
 	}
 	return decodeQuestionDetail(raw)
 }
@@ -266,6 +276,18 @@ func (repository *Postgres) ListDraftQuestions(contextValue context.Context, tra
 	var questions []app.QuestionDetail
 	if err := json.Unmarshal(raw, &questions); err != nil {
 		return nil, fmt.Errorf("decode draft question list: %w", err)
+	}
+	return questions, nil
+}
+
+func (repository *Postgres) ListReviewQueue(contextValue context.Context, transaction pgx.Tx, limit int) ([]app.QuestionDetail, error) {
+	var raw json.RawMessage
+	if err := transaction.QueryRow(contextValue, `SELECT qbank.list_review_queue($1)`, limit).Scan(&raw); err != nil {
+		return nil, mapCommandError(err, "list review queue")
+	}
+	var questions []app.QuestionDetail
+	if err := json.Unmarshal(raw, &questions); err != nil {
+		return nil, fmt.Errorf("decode review queue: %w", err)
 	}
 	return questions, nil
 }

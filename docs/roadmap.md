@@ -134,7 +134,7 @@ Needs the owner:
 Still to build:
 - Rerun `pnpm e2e` after the exam-list fix (it stopped at the teacher's
   release step on the rate limit) and run `make loadtest` at 1000 students.
-- Exam calendar; question review queue before use; per-college branding.
+- Per-college branding.
 - Staff preview by taking an exam (needs preview attempts in Submission).
 - Content: blogs, contests, hackathons, open source, interview experiences.
 - Student profile and coding-platform stats, planned for the student ERP

@@ -190,6 +190,9 @@ export type QuestionVersion = {
   memory_limit_kib: number;
   status: "draft" | "published" | "retired";
   published_at?: string;
+  /** Set once the author asks for a review (ADR-0044). */
+  review_requested_at?: string;
+  review_requested_by?: string;
   version: number;
   sample_test_case_count: number;
   hidden_test_case_count: number;

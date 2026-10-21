@@ -42,6 +42,8 @@ func NewHandler(serviceName string, service *app.Service, readiness httpx.Readin
 	mux.HandleFunc("POST /v1/question-versions/{question_version_id}/assets", handler.addQuestionAsset)
 	mux.HandleFunc("PUT /v1/question-versions/{question_version_id}/tags", handler.replaceQuestionVersionTags)
 	mux.HandleFunc("POST /v1/question-versions/{question_version_id}/publish", handler.publishQuestionVersion)
+	mux.HandleFunc("POST /v1/question-versions/{question_version_id}/request-review", handler.requestQuestionReview)
+	mux.HandleFunc("GET /v1/review-policy", handler.reviewPolicy)
 	mux.HandleFunc("DELETE /v1/questions/{question_id}", handler.deleteQuestion)
 	mux.HandleFunc("DELETE /v1/questions/{question_id}/hard", handler.hardDeleteQuestion)
 	mux.HandleFunc("DELETE /v1/question-versions/{question_version_id}", handler.deleteQuestionVersion)
@@ -362,6 +364,48 @@ func (handler *Handler) publishQuestionVersion(writer http.ResponseWriter, reque
 	httpx.WriteJSON(writer, http.StatusOK, question)
 }
 
+// reviewPolicy tells the staff UI whether publishing needs a review (ADR-0044).
+func (handler *Handler) reviewPolicy(writer http.ResponseWriter, request *http.Request) {
+	if _, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "read", "questions", "policy", ""); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	httpx.WriteJSON(writer, http.StatusOK, map[string]bool{"require_review": handler.service.ReviewRequired()})
+}
+
+// requestQuestionReview asks for a review of a draft (ADR-0044).
+func (handler *Handler) requestQuestionReview(writer http.ResponseWriter, request *http.Request) {
+	questionVersionID, err := httpx.ParseUUIDPathValue(request, "question_version_id")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	var body publishQuestionVersionRequest
+	if err := httpx.DecodeJSON(request, &body); err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	key, err := idempotencyKey(request)
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	decision, err := handler.authorizer.AuthorizeHTTP(request.Context(), request, "write", "question_versions", questionVersionID, "")
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	question, err := handler.service.RequestQuestionReview(request.Context(), decision.Capability, app.RequestQuestionReview{
+		WriteCommand: app.WriteCommand{IdempotencyKey: key}, QuestionVersionID: questionVersionID,
+		ExpectedQuestionVersion: body.ExpectedQuestionVersion,
+	})
+	if err != nil {
+		httpx.WriteError(writer, err)
+		return
+	}
+	httpx.WriteJSON(writer, http.StatusOK, question)
+}
+
 type archiveQuestionRequest struct {
 	ExpectedQuestionRevision int64 `json:"expected_question_revision"`
 }
@@ -458,9 +502,14 @@ func (handler *Handler) listPublishedQuestions(writer http.ResponseWriter, reque
 		return
 	}
 	query := request.URL.Query()
-	// ?status=draft lists the caller's own drafts instead.
-	if query.Get("status") == "draft" {
-		page, draftErr := handler.service.ListDraftQuestions(request.Context(), decision.Capability, limit)
+	// ?status=draft lists the caller's own drafts instead, and ?status=review
+	// the drafts of every author that wait for a review (ADR-0044).
+	if status := query.Get("status"); status == "draft" || status == "review" {
+		list := handler.service.ListDraftQuestions
+		if status == "review" {
+			list = handler.service.ListReviewQueue
+		}
+		page, draftErr := list(request.Context(), decision.Capability, limit)
 		if draftErr != nil {
 			httpx.WriteError(writer, draftErr)
 			return

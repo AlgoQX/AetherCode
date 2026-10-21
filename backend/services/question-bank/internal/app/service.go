@@ -71,6 +71,7 @@ type Store interface {
 	AddQuestionAsset(context.Context, pgx.Tx, AddQuestionAsset) (QuestionVersion, error)
 	ReplaceQuestionVersionTags(context.Context, pgx.Tx, ReplaceQuestionVersionTags) (QuestionVersion, error)
 	PublishQuestionVersion(context.Context, pgx.Tx, PublishQuestionVersion) (QuestionDetail, error)
+	RequestQuestionReview(context.Context, pgx.Tx, RequestQuestionReview) (QuestionDetail, error)
 	ArchiveQuestion(context.Context, pgx.Tx, ArchiveQuestion) (QuestionDetail, error)
 	GetPublishedQuestion(context.Context, pgx.Tx, string) (QuestionDetail, error)
 	GetQuestionVersion(context.Context, pgx.Tx, string) (QuestionVersion, error)
@@ -78,6 +79,7 @@ type Store interface {
 	GetQuestionVersionIncludeDeleted(context.Context, pgx.Tx, string) (QuestionVersion, error)
 	ListPublishedQuestions(context.Context, pgx.Tx, ListPublishedQuestions) ([]QuestionDetail, error)
 	ListDraftQuestions(context.Context, pgx.Tx, int) ([]QuestionDetail, error)
+	ListReviewQueue(context.Context, pgx.Tx, int) ([]QuestionDetail, error)
 	ListQuestionVersions(context.Context, pgx.Tx, ListQuestionVersions) ([]QuestionVersion, error)
 	SoftDeleteQuestion(context.Context, pgx.Tx, DeleteQuestion) error
 	HardDeleteQuestion(context.Context, pgx.Tx, DeleteQuestion) error
@@ -151,6 +153,9 @@ type QuestionVersion struct {
 	PublishedAt         *time.Time `json:"published_at,omitempty"`
 	CreatedAt           time.Time  `json:"created_at"`
 	Version             int64      `json:"version"`
+	// ReviewRequestedAt and ReviewRequestedBy are set once an author asks for a review (ADR-0044).
+	ReviewRequestedAt *time.Time `json:"review_requested_at,omitempty"`
+	ReviewRequestedBy *string    `json:"review_requested_by,omitempty"`
 	Tags                []Tag      `json:"tags"`
 	SampleTestCaseCount int        `json:"sample_test_case_count"`
 	HiddenTestCaseCount int        `json:"hidden_test_case_count"`
@@ -273,6 +278,14 @@ type PublishQuestionVersion struct {
 	QuestionVersionID       string
 	EventID                 string
 	ExpectedQuestionVersion int64
+	// RequireReview is set by the service from its configuration, never by a caller.
+	RequireReview bool
+}
+
+type RequestQuestionReview struct {
+	WriteCommand
+	QuestionVersionID       string
+	ExpectedQuestionVersion int64
 }
 
 type ArchiveQuestion struct {
@@ -310,6 +323,8 @@ type Service struct {
 	logger  *slog.Logger
 	// modelChecks sends model-solution checks to Judge; nil when not configured.
 	modelChecks ModelCheckRunner
+	// requireReview makes publishing need a review from another member of staff (ADR-0044).
+	requireReview bool
 }
 
 // NewService creates a new Question Bank service. Storage and KMS are required:
@@ -517,10 +532,32 @@ func (service *Service) ReplaceQuestionVersionTags(contextValue context.Context,
 	)
 }
 
+// RequireReview makes publishing need a review request from somebody else.
+func (service *Service) RequireReview() { service.requireReview = true }
+
+// ReviewRequired reports whether publishing needs a review.
+func (service *Service) ReviewRequired() bool { return service.requireReview }
+
+func (service *Service) RequestQuestionReview(contextValue context.Context, capability centralauthz.Capability, command RequestQuestionReview) (QuestionDetail, error) {
+	if !isUUID(command.QuestionVersionID) || command.ExpectedQuestionVersion <= 0 {
+		return QuestionDetail{}, apperrors.New(apperrors.CodeInvalidArgument, "question version review fields are invalid")
+	}
+	return runWrite(service, contextValue, capability, "question.version.request_review", command.IdempotencyKey,
+		struct {
+			QuestionVersionID       string `json:"question_version_id"`
+			ExpectedQuestionVersion int64  `json:"expected_question_version"`
+		}{command.QuestionVersionID, command.ExpectedQuestionVersion}, 200,
+		func(transaction pgx.Tx) (QuestionDetail, error) {
+			return service.store.RequestQuestionReview(contextValue, transaction, command)
+		},
+	)
+}
+
 func (service *Service) PublishQuestionVersion(contextValue context.Context, capability centralauthz.Capability, command PublishQuestionVersion) (QuestionDetail, error) {
 	if !isUUID(command.QuestionVersionID) || !isUUID(command.EventID) || command.ExpectedQuestionVersion <= 0 {
 		return QuestionDetail{}, apperrors.New(apperrors.CodeInvalidArgument, "question version publication fields are invalid")
 	}
+	command.RequireReview = service.requireReview
 	return runWrite(service, contextValue, capability, "question.version.publish", command.IdempotencyKey,
 		struct {
 			QuestionVersionID       string `json:"question_version_id"`
@@ -582,6 +619,26 @@ func (service *Service) ListDraftQuestions(contextValue context.Context, capabil
 	page := Page[QuestionDetail]{Items: []QuestionDetail{}}
 	err := database.WithTenantTx(contextValue, service.pool, capability, func(transaction pgx.Tx) error {
 		questions, err := service.store.ListDraftQuestions(contextValue, transaction, limit)
+		if err != nil {
+			return err
+		}
+		if questions != nil {
+			page.Items = questions
+		}
+		return nil
+	})
+	return page, err
+}
+
+// ListReviewQueue lists drafts by any author that are waiting for a review,
+// oldest request first (ADR-0044).
+func (service *Service) ListReviewQueue(contextValue context.Context, capability centralauthz.Capability, limit int) (Page[QuestionDetail], error) {
+	if limit < 1 || limit > 100 {
+		return Page[QuestionDetail]{}, apperrors.New(apperrors.CodeInvalidArgument, "question listing limit must be between 1 and 100")
+	}
+	page := Page[QuestionDetail]{Items: []QuestionDetail{}}
+	err := database.WithTenantTx(contextValue, service.pool, capability, func(transaction pgx.Tx) error {
+		questions, err := service.store.ListReviewQueue(contextValue, transaction, limit)
 		if err != nil {
 			return err
 		}

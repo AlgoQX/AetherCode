@@ -10,7 +10,7 @@ import type { ModelCheck, QuestionVersion } from "@/lib/api-types";
 import { gateway } from "@/lib/server/gateway";
 import { requireStaff } from "@/lib/server/staff";
 import { languageName } from "@/lib/utils";
-import { draftNewVersion, publishQuestion } from "../actions";
+import { draftNewVersion, publishQuestion, requestReview } from "../actions";
 import { AudienceSwitch } from "./audience-switch";
 import { ModelCheckPanel } from "./model-check";
 import { ChoicesEditor } from "./choices-editor";
@@ -23,10 +23,12 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
   const { versionId } = await params;
   let version: QuestionVersion;
   let checks: ModelCheck[];
+  let requireReview: boolean;
   try {
-    [version, checks] = await Promise.all([
+    [version, checks, requireReview] = await Promise.all([
       gateway<QuestionVersion>(`/question-bank/v1/question-versions/${versionId}`),
       gateway<ModelCheck[]>(`/question-bank/v1/question-versions/${versionId}/model-checks`).catch(() => []),
+      gateway<{ require_review: boolean }>("/question-bank/v1/review-policy").then((policy) => policy.require_review, () => false),
     ]);
   } catch (error) {
     return (
@@ -54,7 +56,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
             {version.kind !== "mcq" && (
               <AudienceSwitch questionId={version.question_id} versionId={version.id} initial={version.audience ?? "test"} />
             )}
-            <Badge tone={draft ? "neutral" : "success"}>{draft ? "Draft" : "Published"}</Badge>
+            <Badge tone={draft ? "neutral" : "success"}>{draft ? (version.review_requested_at ? "In review" : "Draft") : "Published"}</Badge>
             {/* Exports carry the hidden tests: administrators only, and each is logged (ADR-0032). */}
             {staff.canManageAccounts && version.kind !== "mcq" && version.hidden_test_case_count > 0 && (
               <Button asChild variant="secondary" size="sm">
@@ -106,11 +108,32 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
                       : "Save at least one sample and one hidden test first."
                 }
               >
-                {ready && (
+                {ready && !requireReview && (
                   <ActionForm action={publishQuestion} submitLabel="Publish question">
                     <input type="hidden" name="version_id" value={version.id} />
                     <input type="hidden" name="expected_version" value={version.version} />
                   </ActionForm>
+                )}
+                {ready && requireReview && !version.review_requested_at && (
+                  <>
+                    <p className="mb-3 text-sm text-ink-muted">A different member of staff has to approve this question before it is published.</p>
+                    <ActionForm action={requestReview} submitLabel="Ask for a review">
+                      <input type="hidden" name="version_id" value={version.id} />
+                      <input type="hidden" name="expected_version" value={version.version} />
+                    </ActionForm>
+                  </>
+                )}
+                {ready && requireReview && version.review_requested_at && version.review_requested_by === staff.viewer.principalId && (
+                  <p className="text-sm text-ink-muted">Waiting for another member of staff to review it. If you change it, ask again.</p>
+                )}
+                {ready && requireReview && version.review_requested_at && version.review_requested_by !== staff.viewer.principalId && (
+                  <>
+                    <p className="mb-3 text-sm text-ink-muted">Read the statement and tests, then approve. Approving publishes this version.</p>
+                    <ActionForm action={publishQuestion} submitLabel="Approve and publish">
+                      <input type="hidden" name="version_id" value={version.id} />
+                      <input type="hidden" name="expected_version" value={version.version} />
+                    </ActionForm>
+                  </>
                 )}
               </Section>
             </>

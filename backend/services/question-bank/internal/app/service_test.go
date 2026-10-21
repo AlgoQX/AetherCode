@@ -102,6 +102,24 @@ func TestValidIdempotencyKey(t *testing.T) {
 	}
 }
 
+func TestRequestQuestionReviewRejectsInvalidFieldsBeforeTheStore(t *testing.T) {
+	t.Parallel()
+	for name, command := range map[string]RequestQuestionReview{
+		"bad version id": {QuestionVersionID: "nope", ExpectedQuestionVersion: 1},
+		"no revision":    {QuestionVersionID: "01920a4d-1234-7abc-9876-543210fedcba"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			command.IdempotencyKey = "test-key"
+			service := &Service{store: &panicStore{}}
+			_, err := service.RequestQuestionReview(context.TODO(), centralauthz.Capability{}, command)
+			if err == nil {
+				t.Fatal("RequestQuestionReview() expected invalid argument error, got nil")
+			}
+		})
+	}
+}
+
 func TestPublishQuestionVersionRequiresValidQuestionAndVersionIDs(t *testing.T) {
 	t.Parallel()
 	for _, testCase := range []struct {
@@ -295,6 +313,12 @@ func (s *panicStore) ReplaceQuestionVersionTags(context.Context, pgx.Tx, Replace
 	panic("store method called before validation")
 }
 func (s *panicStore) PublishQuestionVersion(context.Context, pgx.Tx, PublishQuestionVersion) (QuestionDetail, error) {
+	panic("store method called before validation")
+}
+func (s *panicStore) ListReviewQueue(context.Context, pgx.Tx, int) ([]QuestionDetail, error) {
+	panic("store method called before validation")
+}
+func (s *panicStore) RequestQuestionReview(context.Context, pgx.Tx, RequestQuestionReview) (QuestionDetail, error) {
 	panic("store method called before validation")
 }
 func (s *panicStore) ArchiveQuestion(context.Context, pgx.Tx, ArchiveQuestion) (QuestionDetail, error) {

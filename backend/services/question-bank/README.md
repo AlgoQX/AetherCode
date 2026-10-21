@@ -48,6 +48,9 @@ Both endpoints return `{"items": [...], "next_cursor": "..."}`. An absent
 3. `POST /v1/question-versions/{id}/publish` publishes only when the sample and
    hidden manifests and the evaluation bundle exist. The publication trigger and immutable-version
    trigger enforce this in PostgreSQL, not only in HTTP code.
+   With `QBANK_REQUIRE_REVIEW=true` the author first calls
+   `POST /v1/question-versions/{id}/request-review`, and a different member of
+   staff publishes (ADR-0044). `GET /v1/questions?status=review` is the queue.
 4. Publish a corrected draft as a new version; published versions and their
    child content cannot be changed. Archive the question to stop future use.
 
@@ -103,6 +106,11 @@ Required in all environments:
   production needs a managed KMS adapter).
 
 The service refuses to start when storage or KMS is not configured.
+
+Optional:
+
+- `QBANK_REQUIRE_REVIEW=true` — publishing needs a review request from
+  another member of staff (ADR-0044). Off by default.
 
 When `NATS_URL` is set (mandatory in staging and production):
 
