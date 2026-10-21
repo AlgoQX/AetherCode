@@ -286,6 +286,8 @@ type RequestQuestionReview struct {
 	WriteCommand
 	QuestionVersionID       string
 	ExpectedQuestionVersion int64
+	// ReviewerID is optional.
+	ReviewerID string
 }
 
 type ArchiveQuestion struct {
@@ -539,14 +541,15 @@ func (service *Service) RequireReview() { service.requireReview = true }
 func (service *Service) ReviewRequired() bool { return service.requireReview }
 
 func (service *Service) RequestQuestionReview(contextValue context.Context, capability centralauthz.Capability, command RequestQuestionReview) (QuestionDetail, error) {
-	if !isUUID(command.QuestionVersionID) || command.ExpectedQuestionVersion <= 0 {
+	if !isUUID(command.QuestionVersionID) || command.ExpectedQuestionVersion <= 0 || (command.ReviewerID != "" && !isUUID(command.ReviewerID)) {
 		return QuestionDetail{}, apperrors.New(apperrors.CodeInvalidArgument, "question version review fields are invalid")
 	}
 	return runWrite(service, contextValue, capability, "question.version.request_review", command.IdempotencyKey,
 		struct {
 			QuestionVersionID       string `json:"question_version_id"`
 			ExpectedQuestionVersion int64  `json:"expected_question_version"`
-		}{command.QuestionVersionID, command.ExpectedQuestionVersion}, 200,
+			ReviewerID              string `json:"reviewer_id"`
+		}{command.QuestionVersionID, command.ExpectedQuestionVersion, command.ReviewerID}, 200,
 		func(transaction pgx.Tx) (QuestionDetail, error) {
 			return service.store.RequestQuestionReview(contextValue, transaction, command)
 		},

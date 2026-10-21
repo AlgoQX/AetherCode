@@ -315,6 +315,7 @@ paths:
               required: [expected_question_version]
               properties:
                 expected_question_version: {type: integer, minimum: 1}
+                reviewer_id: {type: string, format: uuid, description: Optional; a hint for the queue, not a restriction}
       responses:
         '200': {$ref: '#/components/responses/QuestionDetail'}
         '400': {$ref: '#/components/responses/Problem'}
@@ -607,6 +608,7 @@ components:
         status: {type: string, enum: [draft, published, retired]}
         review_requested_at: {type: string, format: date-time}
         review_requested_by: {type: string, format: uuid}
+        assigned_reviewer_id: {type: string, format: uuid}
         published_at: {type: [string, 'null'], format: date-time}
         created_at: {type: string, format: date-time}
         version: {type: integer, minimum: 1}

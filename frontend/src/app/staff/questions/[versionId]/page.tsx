@@ -1,13 +1,14 @@
 import { ArrowLeft, Download } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ActionForm } from "@/components/staff/form";
+import { ActionForm, Field, Select } from "@/components/staff/form";
 import { LoadError, PageHeader, Section } from "@/components/staff/page-header";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import { Badge, Panel } from "@/components/ui/card";
 import type { ModelCheck, QuestionVersion } from "@/lib/api-types";
 import { gateway } from "@/lib/server/gateway";
+import { reviewerChoices } from "@/lib/server/reviewers";
 import { requireStaff } from "@/lib/server/staff";
 import { languageName } from "@/lib/utils";
 import { draftNewVersion, publishQuestion, requestReview } from "../actions";
@@ -45,6 +46,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
   // A coding question is published only after a model solution passed every test (ADR-0047).
   const verified = checks.some((check) => check.lifecycle_state === "completed" && check.verdict === "accepted" && check.current);
   const canPublish = ready && (choice || verified);
+  const reviewers = canPublish && requireReview && !version.review_requested_at ? await reviewerChoices(staff.tenantId, staff.viewer.principalId) : [];
   return (
     <>
       <Link href="/staff/questions" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
@@ -125,6 +127,18 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
                     <ActionForm action={requestReview} submitLabel="Ask for a review">
                       <input type="hidden" name="version_id" value={version.id} />
                       <input type="hidden" name="expected_version" value={version.version} />
+                      {reviewers.length > 0 && (
+                        <Field label="Reviewer (optional)" hint="Anyone else on staff can still approve" htmlFor="reviewer">
+                          <Select id="reviewer" name="reviewer_id" defaultValue="">
+                            <option value="">Any reviewer</option>
+                            {reviewers.map((reviewer) => (
+                              <option key={reviewer.id} value={reviewer.id}>
+                                {reviewer.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </Field>
+                      )}
                     </ActionForm>
                   </>
                 )}
@@ -133,7 +147,9 @@ export default async function QuestionPage({ params }: { params: Promise<{ versi
                 )}
                 {canPublish && requireReview && version.review_requested_at && version.review_requested_by !== staff.viewer.principalId && (
                   <>
-                    <p className="mb-3 text-sm text-ink-muted">Read the statement and tests, then approve. Approving publishes this version.</p>
+                    <p className="mb-3 text-sm text-ink-muted">
+                      {version.assigned_reviewer_id === staff.viewer.principalId ? "This was sent to you. " : ""}Read the statement and tests, then approve. Approving publishes this version.
+                    </p>
                     <ActionForm action={publishQuestion} submitLabel="Approve and publish">
                       <input type="hidden" name="version_id" value={version.id} />
                       <input type="hidden" name="expected_version" value={version.version} />

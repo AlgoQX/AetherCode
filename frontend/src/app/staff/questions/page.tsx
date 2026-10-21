@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Questions" };
 const DIFFICULTY_TONE = { easy: "success", medium: "warning", hard: "danger" } as const;
 
 export default async function QuestionsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  await requireStaff();
+  const staff = await requireStaff();
   const tab = (await searchParams).tab;
   const drafts = tab === "drafts";
   const review = tab === "review";
@@ -88,6 +88,7 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
                   </p>
                 </div>
                 <Badge tone={DIFFICULTY_TONE[version.difficulty]}>{version.difficulty}</Badge>
+                {review && version.assigned_reviewer_id === staff.viewer.principalId && <Badge tone="brand">For you</Badge>}
                 {version.status === "draft" && <Badge>{version.review_requested_at ? "In review" : "Draft"} v{version.version_number}</Badge>}
                 {(drafts || review) && question.audience === "practice" && <Badge tone="brand">Practice</Badge>}
               </Link>

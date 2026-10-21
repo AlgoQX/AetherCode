@@ -127,6 +127,8 @@ frontend build, **not yet deployed or run on the campus stack**:
   and GitHub imports, linked coding accounts with public stats, personal tasks.
   notification `000013`, user `000030`; unit- and integration-tested on
   PostgreSQL 16 only.
+- A colleges screen for platform administrators, and naming a reviewer on a
+  question review request (question-bank `000021`).
 - Staff try an exam as a student in a private copy (ADR-0046); the
   `smoke.py` check for it has not been run.
 
@@ -137,7 +139,7 @@ Needs the owner:
    v1, and `exam.stjosephsplacements.in` has no public hostname. Point
    `aethercode.` at the campus tunnel (nginx :80) and add `exam.` for v1.
 2. Deploy the 2026-10-21 batch: user `000029`, submission `000035`,
-   assessment `000033`, question-bank `000019` and `000020`, notification
+   assessment `000033`, question-bank `000019` to `000021`, notification
    `000013`, user `000030`; rebuild identity, user,
    submission, assessment, question-bank and frontend; back up first and run
    `smoke.py`. Optionally set `QBANK_REQUIRE_REVIEW=true`.

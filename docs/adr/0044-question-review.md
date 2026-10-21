@@ -48,3 +48,11 @@ it offers "Ask for a review" or "Publish" accordingly.
 - Rejection is not modelled. A reviewer who finds a problem tells the author
   out of band; the author edits (which bumps the revision) and asks again.
 - The model-solution check (ADR-0033) is still advisory.
+
+## Addendum: naming a reviewer (question-bank migration 000021)
+
+A review request may name a reviewer (`reviewer_id`, never the requester). It
+is a routing hint: the queue marks the request "For you" for that person and
+the editor tells them it was sent to them, but any other member of staff may
+still approve. The choice list is the college's staff, shown only to callers
+who may list role assignments.

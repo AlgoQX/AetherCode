@@ -80,7 +80,7 @@ export async function requestReview(_previous: ActionState, form: FormData): Pro
   try {
     await gateway(`/question-bank/v1/question-versions/${versionId}/request-review`, {
       method: "POST",
-      body: { expected_question_version: Number(form.get("expected_version")) },
+      body: { expected_question_version: Number(form.get("expected_version")), reviewer_id: String(form.get("reviewer_id") ?? "") },
     });
   } catch (error) {
     return { error: actionError(error) };

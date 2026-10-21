@@ -81,7 +81,17 @@ func TestQuestionReview(t *testing.T) {
 	require.NoError(t, publish(author, second, 1, false), "without the requirement, anyone publishes a draft")
 
 	third := newVersion(3)
-	require.NoError(t, requestReview(author, third, 1))
+	askFor := func(version, reviewerID uuid.UUID) error {
+		return asWriter(ctx, pool, author, "qbank.question_versions", func(tx pgx.Tx) error {
+			var raw []byte
+			return tx.QueryRow(ctx, `SELECT qbank.request_question_review($1, 1, $2)`, version, reviewerID).Scan(&raw)
+		})
+	}
+	requirePgCode(t, askFor(third, author), "22023") // not yourself
+	require.NoError(t, askFor(third, reviewer))
+	var assigned uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx, `SELECT assigned_reviewer_id FROM qbank.question_versions WHERE id = $1`, third).Scan(&assigned))
+	require.Equal(t, reviewer, assigned)
 	_, err = pool.Exec(ctx, `UPDATE qbank.question_versions SET version = version + 1 WHERE id = $1`, third) // an edit after the request
 	require.NoError(t, err)
 	requirePgCode(t, publish(reviewer, third, 2, true), "40001")

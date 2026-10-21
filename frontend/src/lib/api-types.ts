@@ -193,6 +193,8 @@ export type QuestionVersion = {
   /** Set once the author asks for a review (ADR-0044). */
   review_requested_at?: string;
   review_requested_by?: string;
+  /** Who the review request waits for; a hint, any other staff member may approve. */
+  assigned_reviewer_id?: string;
   version: number;
   sample_test_case_count: number;
   hidden_test_case_count: number;

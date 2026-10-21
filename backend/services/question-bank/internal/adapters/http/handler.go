@@ -374,13 +374,18 @@ func (handler *Handler) reviewPolicy(writer http.ResponseWriter, request *http.R
 }
 
 // requestQuestionReview asks for a review of a draft (ADR-0044).
+type requestQuestionReviewRequest struct {
+	ExpectedQuestionVersion int64  `json:"expected_question_version"`
+	ReviewerID              string `json:"reviewer_id"`
+}
+
 func (handler *Handler) requestQuestionReview(writer http.ResponseWriter, request *http.Request) {
 	questionVersionID, err := httpx.ParseUUIDPathValue(request, "question_version_id")
 	if err != nil {
 		httpx.WriteError(writer, err)
 		return
 	}
-	var body publishQuestionVersionRequest
+	var body requestQuestionReviewRequest
 	if err := httpx.DecodeJSON(request, &body); err != nil {
 		httpx.WriteError(writer, err)
 		return
@@ -397,7 +402,7 @@ func (handler *Handler) requestQuestionReview(writer http.ResponseWriter, reques
 	}
 	question, err := handler.service.RequestQuestionReview(request.Context(), decision.Capability, app.RequestQuestionReview{
 		WriteCommand: app.WriteCommand{IdempotencyKey: key}, QuestionVersionID: questionVersionID,
-		ExpectedQuestionVersion: body.ExpectedQuestionVersion,
+		ExpectedQuestionVersion: body.ExpectedQuestionVersion, ReviewerID: body.ReviewerID,
 	})
 	if err != nil {
 		httpx.WriteError(writer, err)

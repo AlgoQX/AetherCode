@@ -212,8 +212,8 @@ func (repository *Postgres) PublishQuestionVersion(contextValue context.Context,
 
 func (repository *Postgres) RequestQuestionReview(contextValue context.Context, transaction pgx.Tx, command app.RequestQuestionReview) (app.QuestionDetail, error) {
 	var raw json.RawMessage
-	err := transaction.QueryRow(contextValue, `SELECT qbank.request_question_review($1, $2)`,
-		command.QuestionVersionID, command.ExpectedQuestionVersion).Scan(&raw)
+	err := transaction.QueryRow(contextValue, `SELECT qbank.request_question_review($1, $2, NULLIF($3, '')::uuid)`,
+		command.QuestionVersionID, command.ExpectedQuestionVersion, command.ReviewerID).Scan(&raw)
 	if err != nil {
 		return app.QuestionDetail{}, mapCommandError(err, "request question review")
 	}
