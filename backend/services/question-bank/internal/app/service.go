@@ -140,22 +140,22 @@ type Question struct {
 // checksums, and KMS references are never returned by
 // the browser-facing API; object access is separately controlled.
 type QuestionVersion struct {
-	ID                  string     `json:"id"`
-	QuestionID          string     `json:"question_id"`
-	VersionNumber       int        `json:"version_number"`
-	Title               string     `json:"title"`
-	PromptMarkdown      string     `json:"prompt_markdown"`
-	Difficulty          string     `json:"difficulty"`
-	SupportedLanguages  []string   `json:"supported_languages"`
-	TimeLimitMS         int        `json:"time_limit_ms"`
-	MemoryLimitKiB      int        `json:"memory_limit_kib"`
-	Status              string     `json:"status"`
-	PublishedAt         *time.Time `json:"published_at,omitempty"`
-	CreatedAt           time.Time  `json:"created_at"`
-	Version             int64      `json:"version"`
+	ID                 string     `json:"id"`
+	QuestionID         string     `json:"question_id"`
+	VersionNumber      int        `json:"version_number"`
+	Title              string     `json:"title"`
+	PromptMarkdown     string     `json:"prompt_markdown"`
+	Difficulty         string     `json:"difficulty"`
+	SupportedLanguages []string   `json:"supported_languages"`
+	TimeLimitMS        int        `json:"time_limit_ms"`
+	MemoryLimitKiB     int        `json:"memory_limit_kib"`
+	Status             string     `json:"status"`
+	PublishedAt        *time.Time `json:"published_at,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	Version            int64      `json:"version"`
 	// ReviewRequestedAt and ReviewRequestedBy are set once an author asks for a review (ADR-0044).
-	ReviewRequestedAt *time.Time `json:"review_requested_at,omitempty"`
-	ReviewRequestedBy *string    `json:"review_requested_by,omitempty"`
+	ReviewRequestedAt   *time.Time `json:"review_requested_at,omitempty"`
+	ReviewRequestedBy   *string    `json:"review_requested_by,omitempty"`
 	Tags                []Tag      `json:"tags"`
 	SampleTestCaseCount int        `json:"sample_test_case_count"`
 	HiddenTestCaseCount int        `json:"hidden_test_case_count"`
