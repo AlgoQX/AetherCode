@@ -197,6 +197,8 @@ type Exam struct {
 	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 	DeletedBy      *string    `json:"deleted_by,omitempty"`
 	DeletionReason *string    `json:"deletion_reason,omitempty"`
+	// LatestVersion is set on listed exams (ADR-0043).
+	LatestVersion *ExamVersion `json:"latest_version,omitempty"`
 }
 
 // IsDeleted checks if the exam has been soft-deleted.

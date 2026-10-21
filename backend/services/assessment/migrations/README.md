@@ -26,3 +26,8 @@ Rollback drops the function and restores the trigger and builder.
 `000032_move_assignment_window` adds `move_assignment_window` (ADR-0040):
 staff move an assignment rule's close time after publication; its
 assignments follow and are snapshotted again. Rollback drops it.
+
+`000033_exam_list_latest_version` adds `latest_exam_versions(tenant, exam
+IDs)`, readable with a read capability on `exams` (ADR-0043). The exam list
+then carries each exam's latest version, so staff pages list exams in one
+request instead of one per exam. Rollback drops it.

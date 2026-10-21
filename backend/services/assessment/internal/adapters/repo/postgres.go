@@ -856,6 +856,9 @@ func (repository *Postgres) ListExams(ctx context.Context, transaction pgx.Tx, c
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read exam rows: %w", err)
 	}
+	if err := attachLatestVersions(ctx, transaction, command.TenantID, exams); err != nil {
+		return nil, err
+	}
 	return exams, nil
 }
 
@@ -971,4 +974,42 @@ func (repository *Postgres) MoveAssignmentWindow(ctx context.Context, transactio
 		return 0, mapWriteError(err, "the window could not be moved")
 	}
 	return moved, nil
+}
+
+// attachLatestVersions sets each listed exam's latest version in one query.
+func attachLatestVersions(ctx context.Context, transaction pgx.Tx, tenantID string, exams []app.Exam) error {
+	if len(exams) == 0 {
+		return nil
+	}
+	ids := make([]string, len(exams))
+	index := make(map[string]int, len(exams))
+	for position, exam := range exams {
+		ids[position] = exam.ID
+		index[exam.ID] = position
+	}
+	rows, err := transaction.Query(ctx, `
+		SELECT out_id::text, out_exam_id::text, out_version_number, out_content_version, out_attempt_limit,
+		       out_title, out_instructions_markdown, out_opens_at, out_closes_at, out_duration_seconds,
+		       out_proctor_policy_version_id::text, out_status, out_published_at, out_created_at
+		FROM assessment.latest_exam_versions($1, $2::uuid[])
+	`, tenantID, ids)
+	if err != nil {
+		return fmt.Errorf("list latest exam versions: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		version := app.ExamVersion{TenantID: tenantID}
+		if err := rows.Scan(
+			&version.ID, &version.ExamID, &version.VersionNumber, &version.ContentVersion, &version.AttemptLimit,
+			&version.Title, &version.InstructionsMarkdown, &version.OpensAt, &version.ClosesAt,
+			&version.DurationSeconds, &version.ProctorPolicyVersionID, &version.Status,
+			&version.PublishedAt, &version.CreatedAt,
+		); err != nil {
+			return fmt.Errorf("scan latest exam version: %w", err)
+		}
+		if position, found := index[version.ExamID]; found {
+			exams[position].LatestVersion = &version
+		}
+	}
+	return rows.Err()
 }

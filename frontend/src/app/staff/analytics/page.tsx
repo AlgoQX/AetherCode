@@ -3,7 +3,7 @@ import Link from "next/link";
 import { EmptyState, LoadError, PageHeader, Section, Table } from "@/components/staff/page-header";
 import type { ExamResult, Page, Student } from "@/lib/api-types";
 import { listBatches, listDepartments } from "@/lib/server/directory";
-import { type ExamWithVersion, listExams } from "@/lib/server/exams";
+import { type ExamWithVersion, listExams, mapLimit } from "@/lib/server/exams";
 import { gateway } from "@/lib/server/gateway";
 import { requireCollege } from "@/lib/server/staff";
 import { listAllStudents } from "@/lib/server/students";
@@ -31,20 +31,16 @@ export default async function AnalyticsPage() {
       listBatches(staff.tenantId),
     ]);
     const published = exams.filter((entry) => entry.version && entry.version.status !== "draft");
-    const results = await Promise.all(
-      published.map(async (entry) => ({
+    const results = await mapLimit(published, 6, async (entry) => ({
         exam: entry,
-        results: await gateway<ExamResult[]>(`/analytics/v1/tenants/${staff.tenantId}/exam-results?exam_version_id=${entry.version!.id}&limit=5000`).catch(() => []),
-      })),
-    );
+      results: await gateway<ExamResult[]>(`/analytics/v1/tenants/${staff.tenantId}/exam-results?exam_version_id=${entry.version!.id}&limit=5000`).catch(() => []),
+    }));
     // Batch membership comes from each batch's student list.
     const batchOf = new Map<string, string>();
-    await Promise.all(
-      batches.map(async (batch) => {
-        const page = await gateway<Page<Student>>(`/user/v1/tenants/${staff.tenantId}/students?batch_id=${batch.id}&limit=100`).catch(() => null);
-        for (const student of page?.items ?? []) batchOf.set(student.principal_id, batch.id);
-      }),
-    );
+    await mapLimit(batches, 6, async (batch) => {
+      const page = await gateway<Page<Student>>(`/user/v1/tenants/${staff.tenantId}/students?batch_id=${batch.id}&limit=100`).catch(() => null);
+      for (const student of page?.items ?? []) batchOf.set(student.principal_id, batch.id);
+    });
     data = { results, students, departments, batches, batchOf };
   } catch (error) {
     return (
