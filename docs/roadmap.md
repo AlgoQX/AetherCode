@@ -114,6 +114,15 @@ pushed, **not yet deployed**:
 - Fix: the exam list carries each exam's latest version (assessment
   `000033`), so the staff exams page no longer exceeds the per-user rate limit.
 
+Also done 2026-10-21 in code, tested against a scratch PostgreSQL 16 and the
+frontend build, **not yet deployed or run on the campus stack**:
+- Staff exam calendar (`/staff/calendar`).
+- Question review before use (ADR-0044): question-bank `000019`,
+  `QBANK_REQUIRE_REVIEW` (off by default), "To review" queue.
+- Per-college name, colour and logo from a mounted file (ADR-0045).
+- Staff try an exam as a student in a private copy (ADR-0046); the
+  `smoke.py` check for it has not been run.
+
 ### Pending (2026-10-21)
 
 Needs the owner:
@@ -121,8 +130,9 @@ Needs the owner:
    v1, and `exam.stjosephsplacements.in` has no public hostname. Point
    `aethercode.` at the campus tunnel (nginx :80) and add `exam.` for v1.
 2. Deploy the 2026-10-21 batch: user `000029`, submission `000035`,
-   assessment `000033`; rebuild identity, user, submission, assessment and
-   frontend; back up first and run `smoke.py`.
+   assessment `000033`, question-bank `000019`; rebuild identity, user,
+   submission, assessment, question-bank and frontend; back up first and run
+   `smoke.py`. Optionally set `QBANK_REQUIRE_REVIEW=true`.
 3. Single sign-on (ADR-0042): approve ZITADEL's argon2 verifier, create the
    OIDC app and the service-user token, then set `IDENTITY_SSO_*` and
    `AETHERCODE_SSO=on`.
