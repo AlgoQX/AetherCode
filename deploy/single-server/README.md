@@ -246,7 +246,7 @@ docker compose up -d                      # everything else, User included
 3. Check the `migrate` one-shot exited 0 (`docker compose ps migrate`,
    `docker compose logs migrate`) before judging anything else.
 4. `python3 smoke.py`. It now also checks that publishing needs a passing
-   model solution (ADR-0047), community-free paths, and a staff member trying
+   model solution (ADR-0047), the community content routes (ADR-0048) and a staff member trying
    an exam (ADR-0046).
 5. In a browser as a student: sign in, open Contests, Interviews, Blogs and
    My profile; as faculty: Community, Calendar and a question with a passing

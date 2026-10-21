@@ -550,3 +550,32 @@ _, preview_paper, _ = call("GET", f"{attempts}/{preview_attempt['id']}/paper", t
 assert preview_paper["title"] == "[Preview] Smoke test" and len(preview_paper["items"]) == 1, preview_paper
 ok("staff start and read a private copy of an exam as a student")
 print("ALL PREVIEW CHECKS PASSED")
+
+# --- Community content (ADR-0048) -----------------------------------------
+community = f"/notification/v1/tenants/{tenant}/community"
+_, experience, _ = call("POST", f"{community}/interview-experiences", {
+    "company": f"Acme {run}", "role": "SDE", "verdict": "selected",
+    "rounds": [{"title": "Online test", "description": "Two coding questions."}]}, token=student, expect=201)
+assert experience["status"] == "pending" and experience["mine"] and experience["author_id"] is None, experience
+_, shared, _ = call("GET", f"{community}/interview-experiences", token=student, expect=200)
+assert not any(e["id"] == experience["id"] for e in shared["items"]), shared
+status, _, _ = call("GET", f"{community}/moderation/interview-experiences", token=student)
+assert status == 403, status
+status, _, _ = call("POST", f"{community}/moderation/interview-experiences/{experience['id']}/review", {"approve": True}, token=student)
+assert status == 403, status
+ok("a student's interview experience waits for staff; students cannot moderate")
+call("POST", f"{community}/moderation/interview-experiences/{experience['id']}/review", {"approve": True, "note": "Thanks"}, token=faculty, expect=200)
+_, shared, _ = call("GET", f"{community}/interview-experiences?company=acme", token=student, expect=200)
+assert any(e["id"] == experience["id"] and e["author_id"] is None for e in shared["items"]), shared
+ok("once approved, the experience is visible to students without its author")
+_, listing, _ = call("PUT", f"{community}/moderation/feed", {
+    "kind": "contest", "title": f"Smoke contest {run}", "url": "https://codeforces.com/contests", "platform": "Codeforces",
+    "external_id": f"smoke-{run}"}, token=faculty, expect=200)
+call("PUT", f"{community}/feed/{listing['id']}/bookmark", {"on": True}, token=student, expect=200)
+_, saved, _ = call("GET", f"{community}/feed?bookmarked=true", token=student, expect=200)
+assert [i["id"] for i in saved["items"]] == [listing["id"]], saved
+call("PUT", f"{community}/profile-links/github", {"handle": "octocat"}, token=student, expect=200)
+_, links, _ = call("GET", f"{community}/profile-links", token=student, expect=200)
+assert links["items"] == [{"platform": "github", "handle": "octocat"}], links
+ok("listings, bookmarks and linked accounts work for a student")
+print("ALL COMMUNITY CHECKS PASSED")
