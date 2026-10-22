@@ -20,7 +20,7 @@ The repository holds two independent codebases:
 |---|---|---|
 | **Path** | `backend/`, `deploy/`, `frontend/` | [`apps/exam-v1/`](apps/exam-v1/README.md) |
 | **What it is** | Multi-tenant Go microservices with PostgreSQL row-level security, signed authorization capabilities, an isolated judge (the AetherCode Execution Engine, or Judge0) and Safe Exam Browser enforcement. Runs on one server with Docker Compose or on Kubernetes. | One Next.js app + PostgreSQL + a grading worker over Judge0 or Piston, deployed with Docker Compose behind nginx on one server. |
-| **Status** | **The only backend going forward** (ADR-0017). Accounts, authoring, take-and-grade and SEB lockdown work end to end through the gateway; results, live operations and the web frontend are next. See the [roadmap](docs/roadmap.md). | **Frozen fallback**, feature-complete for a supervised lab exam; used for exams until the platform reaches parity, then removed. |
+| **Status** | **The only backend going forward** (ADR-0017). Accounts, authoring, exams, grading, SEB lockdown, results, live operations, practice, community content and single sign-on work end to end through the gateway, with a Next.js web UI. Cut-over from v1 waits on the stack-level checks in the [roadmap](docs/roadmap.md). | **Frozen fallback**, feature-complete for a supervised lab exam; used for exams until the platform reaches parity, then removed. |
 | **Start here** | [PLAN.md](PLAN.md), [docs/roadmap.md](docs/roadmap.md), [deploy/single-server](deploy/single-server/README.md) | [apps/exam-v1/README.md](apps/exam-v1/README.md) |
 
 The split, and why it exists, is recorded in
@@ -83,7 +83,9 @@ rule (scoring, timing, visibility, limits) are in the
   provisioning.
 - `docs/`: architecture decision records, database documentation, runbooks,
   API output and the [roadmap](docs/roadmap.md).
-- `frontend/`: reserved for the platform's Next.js frontend (not started).
+- `frontend/`: the platform's Next.js web UI for students and staff, a thin
+  backend-for-frontend over the gateway ([README](frontend/README.md)).
+- `apps/exam-v1/`: the frozen v1 exam app.
 
 Start with [the implementation plan](PLAN.md), [the documentation index](docs/README.md)
 and [the roadmap](docs/roadmap.md), which also lists the production gates that
@@ -167,6 +169,17 @@ Working end to end through the gateway (verified by
   and time-up auto-submission;
 - Safe Exam Browser lockdown with per-URL key checks and `.seb` launch files
   (ADR-0022);
+- results and CSV export, result release, a live monitor with extra time and
+  announcements, regrading, a similarity report and staff operations views
+  (ADR-0027, 0031, 0039, 0043);
+- question pools, multiple choice, model-solution checks that gate publishing,
+  question review, practice problems and exam previews (ADR-0033 to 0035, 0041,
+  0044 to 0047);
+- community content for students: interview experiences, blogs, contest,
+  hackathon and open-source listings, linked coding accounts and tasks
+  (ADR-0048);
+- single sign-on through the college's ZITADEL (ADR-0042) and college
+  branding from a file (ADR-0045);
 - in-app notifications, event-fed analytics projections, cursor-paginated
   lists and soft delete (ADR-0013).
 

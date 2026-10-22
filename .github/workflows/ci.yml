@@ -23,6 +23,17 @@ jobs:
       - run: make build
       - run: make test
 
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install -g pnpm@12.6.0
+      - run: make web-check
+      - run: make web-build
+
   integration-test:
     runs-on: ubuntu-24.04
     steps:
