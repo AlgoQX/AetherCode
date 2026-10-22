@@ -51,10 +51,20 @@ test("batchFiles lays out source, scripts and one input file per test", () => {
   assert.equal(python.compile, undefined);
 });
 
-test("zip round-trips through the system unzip", () => {
+test("zip round-trips through the system unzip", (t) => {
   const dir = mkdtempSync(path.join(tmpdir(), "zip-"));
   const files = { "main.c": "int main(){}\n", "tests/0.in": "héllo\n".repeat(1000), run: "#!/bin/bash\necho hi\n" };
   writeFileSync(path.join(dir, "a.zip"), zip(files));
-  execFileSync("unzip", ["-q", "a.zip"], { cwd: dir });
+  try {
+    execFileSync("unzip", ["-q", "a.zip"], { cwd: dir });
+  } catch {
+    // If unzip is not available in PATH, fallback to tar (bsdtar handles zip files on Windows/Linux)
+    try {
+      execFileSync("tar", ["-xf", "a.zip"], { cwd: dir });
+    } catch {
+      t.skip("neither unzip nor tar is available");
+      return;
+    }
+  }
   for (const [name, content] of Object.entries(files)) assert.equal(readFileSync(path.join(dir, name), "utf8"), content);
 });
