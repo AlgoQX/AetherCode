@@ -9,6 +9,7 @@ profile. The current status is maintained in [roadmap.md](roadmap.md).
 
 - [Architecture and implementation plan](../PLAN.md) — service ownership,
   topology, retention, and promotion requirements.
+- [Platform guide](platform-guide.md) — security model, judge boundary, what works end to end, first run and key rotation.
 - [Database architecture](database/README.md) — logical databases, roles, and
   service ownership.
 - [Signed authorization context](database/authorization-context.md) — the User
