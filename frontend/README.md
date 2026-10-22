@@ -41,7 +41,8 @@ re-reads it when it changes.
 }
 ```
 
-A college's entry overrides `default`. `color` must be a `#rrggbb` mid-tone
+A college's entry overrides `default`. `logos` (up to five file names, shown in
+that order) replaces the single `logo` when a college has several marks. `color` must be a `#rrggbb` mid-tone
 that reads on both the light and the dark canvas (relative luminance 0.12 to
 0.30); a colour outside that range, or a logo name with a path, is dropped
 with a warning in the server log. `logo` is a png, jpg, webp or svg file name
