@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accentStyle, parseBranding, pickBrand, usableAccent } from "./branding";
+import { accentStyle, logoFiles, parseBranding, pickBrand, usableAccent } from "./branding";
 
 const TENANT = "018f4b0d-08f8-7c09-9ba7-efdf9c220001";
 
@@ -31,5 +31,14 @@ describe("branding", () => {
   it("picks a readable text colour for the accent", () => {
     expect(accentStyle("#2563eb")["--brand-ink"]).toBe("#fdfdfb");
     expect(accentStyle("#d97757")["--brand-ink"]).toBe("#1f1e1d");
+  });
+
+  it("lists up to five logos in order, falling back to the single logo", () => {
+    const { config, problems } = parseBranding(JSON.stringify({ default: { logo: "one.png" }, tenants: { [TENANT]: { logos: ["a.png", "b.svg"] } } }));
+    expect(problems).toEqual([]);
+    expect(logoFiles(pickBrand(config, TENANT))).toEqual(["a.png", "b.svg"]);
+    expect(logoFiles(pickBrand(config, null))).toEqual(["one.png"]);
+    expect(parseBranding(JSON.stringify({ default: { logos: ["a.png", "../b.png"] } })).problems).toHaveLength(1);
+    expect(parseBranding(JSON.stringify({ default: { logos: ["1.png", "2.png", "3.png", "4.png", "5.png", "6.png"] } })).problems).toHaveLength(1);
   });
 });

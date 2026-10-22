@@ -6,7 +6,9 @@ import { logoFor } from "@/lib/server/branding";
  * sandboxed so opening it directly cannot run script.
  */
 export async function GET(request: Request) {
-  const logo = await logoFor(new URL(request.url).searchParams.get("tenant"));
+  const params = new URL(request.url).searchParams;
+  const index = Number(params.get("n") ?? 0);
+  const logo = Number.isInteger(index) && index >= 0 && index < 5 ? await logoFor(params.get("tenant"), index) : null;
   if (!logo) return new Response(null, { status: 404 });
   return new Response(new Uint8Array(logo.data), {
     headers: {
