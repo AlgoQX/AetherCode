@@ -18,5 +18,9 @@ export async function verifySebPage(pageUrl: string, configKeyHash: string): Pro
 export async function reportSebCheck(reason: string, pageUrl: string): Promise<void> {
   const user = await requireUser("student");
   const userAgent = (await headers()).get("user-agent") ?? "";
-  console.warn(`SEB check failed for ${user.username}: ${reason.slice(0, 100)} at ${pageUrl.slice(0, 300)} (origin ${await publicOrigin()}, UA ${userAgent.slice(0, 200)})`);
+  const cleanReason = reason.replace(/[\r\n]/g, " ").slice(0, 100);
+  const cleanUrl = pageUrl.replace(/[\r\n]/g, " ").slice(0, 300);
+  const cleanOrigin = (await publicOrigin()).replace(/[\r\n]/g, " ");
+  const cleanUA = userAgent.replace(/[\r\n]/g, " ").slice(0, 200);
+  console.warn(`SEB check failed for ${user.username}: ${cleanReason} at ${cleanUrl} (origin ${cleanOrigin}, UA ${cleanUA})`);
 }
