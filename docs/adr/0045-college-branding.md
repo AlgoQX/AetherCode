@@ -46,3 +46,10 @@ before sign-in.
   columns plus a student-readable endpoint are the follow-up, with the
   authorization work described above.
 - Tenant IDs in the file must be kept in step with provisioned tenants.
+
+## Addendum: several logos
+
+A college entry may list up to five logo files in `logos`; the shell shows them
+in order, side by side, and `logo` remains the single-file form. Each is served
+by index (`/branding/logo?n=i`) under the same rules: configured file names
+only, no paths.

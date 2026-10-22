@@ -2,7 +2,7 @@
  * Per-college branding (ADR-0045): a display name, an accent colour and a
  * logo, set in a file the operator mounts, not in the platform's database.
  */
-export type CollegeBrand = { name?: string; color?: string; logo?: string };
+export type CollegeBrand = { name?: string; color?: string; logo?: string; logos?: string[] };
 export type BrandingConfig = { default: CollegeBrand; tenants: Record<string, CollegeBrand> };
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -33,7 +33,7 @@ function parseBrand(value: unknown, where: string, problems: string[]): CollegeB
     problems.push(`${where}: expected an object`);
     return brand;
   }
-  const { name, color, logo } = value as Record<string, unknown>;
+  const { name, color, logo, logos } = value as Record<string, unknown>;
   if (name !== undefined) {
     if (typeof name === "string" && name.trim() && name.length <= 60) brand.name = name.trim();
     else problems.push(`${where}.name: expected 1 to 60 characters`);
@@ -46,7 +46,16 @@ function parseBrand(value: unknown, where: string, problems: string[]): CollegeB
     if (typeof logo === "string" && LOGO.test(logo)) brand.logo = logo;
     else problems.push(`${where}.logo: expected a png, jpg, webp or svg file name without a path`);
   }
+  if (logos !== undefined) {
+    if (Array.isArray(logos) && logos.length >= 1 && logos.length <= 5 && logos.every((entry) => typeof entry === "string" && LOGO.test(entry))) brand.logos = logos as string[];
+    else problems.push(`${where}.logos: expected 1 to 5 png, jpg, webp or svg file names without a path`);
+  }
   return brand;
+}
+
+/** The files to show, in order: `logos`, else the single `logo`. */
+export function logoFiles(brand: CollegeBrand): string[] {
+  return brand.logos ?? (brand.logo ? [brand.logo] : []);
 }
 
 /** Parses the branding file. Invalid entries are dropped and reported, never half-applied. */

@@ -1,7 +1,7 @@
 import "server-only";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { type BrandingConfig, type CollegeBrand, parseBranding, pickBrand } from "@/lib/branding";
+import { type BrandingConfig, logoFiles, parseBranding, pickBrand } from "@/lib/branding";
 
 const EMPTY: BrandingConfig = { default: {}, tenants: {} };
 let cached: { file: string; modified: number; config: BrandingConfig } | null = null;
@@ -24,7 +24,7 @@ async function loadConfig(): Promise<{ file: string; config: BrandingConfig } | 
   }
 }
 
-export type Brand = { name: string | null; color: string | null; logoURL: string | null };
+export type Brand = { name: string | null; color: string | null; logoURLs: string[] };
 
 /** The brand to show a viewer in a college; the AetherCode defaults when none is set. */
 export async function brandFor(tenantId: string | null): Promise<Brand> {
@@ -33,15 +33,15 @@ export async function brandFor(tenantId: string | null): Promise<Brand> {
   return {
     name: brand.name ?? null,
     color: brand.color ?? null,
-    logoURL: brand.logo ? `/branding/logo${tenantId ? `?tenant=${encodeURIComponent(tenantId)}` : ""}` : null,
+    logoURLs: logoFiles(brand).map((_, index) => `/branding/logo?n=${index}${tenantId ? `&tenant=${encodeURIComponent(tenantId)}` : ""}`),
   };
 }
 
 /** A college's logo file from beside the branding file, by its configured name only. */
-export async function logoFor(tenantId: string | null): Promise<{ data: Buffer; type: string } | null> {
+export async function logoFor(tenantId: string | null, index = 0): Promise<{ data: Buffer; type: string } | null> {
   const loaded = await loadConfig();
   if (!loaded) return null;
-  const logo: CollegeBrand["logo"] = pickBrand(loaded.config, tenantId).logo;
+  const logo = logoFiles(pickBrand(loaded.config, tenantId))[index];
   if (!logo) return null;
   const extension = path.extname(logo).slice(1).toLowerCase();
   const type = extension === "svg" ? "image/svg+xml" : extension === "png" ? "image/png" : extension === "webp" ? "image/webp" : "image/jpeg";
