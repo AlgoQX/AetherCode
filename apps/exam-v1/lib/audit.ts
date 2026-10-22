@@ -30,8 +30,7 @@ export async function audit(user: User, action: AuditAction, target: string, det
       INSERT INTO audit_log (actor_id, actor, action, target, details)
       VALUES (${user.id}, ${actor}, ${action}, ${target}, ${sql.json(details as never)})`;
   } catch (error) {
-    const cleanAction = String(action).replace(/[\r\n]/g, " ");
-    const cleanTarget = String(target).replace(/[\r\n]/g, " ");
-    console.error("audit log write failed:", cleanAction, cleanTarget, error);
+    // Avoid logging user-controlled target directly to prevent log injection
+    console.error("audit log write failed for action:", action);
   }
 }
