@@ -13,6 +13,7 @@ tagged, so entries are grouped by date. Decisions are in [docs/adr](docs/adr/REA
 - Exam calendar, question review and reviewer assignment, college branding, staff "try an exam" (ADR-0044 to 0046).
 - Community content: interview experiences, blogs, contest/hackathon/open-source listings, linked coding accounts and tasks (ADR-0048).
 - Colleges screen for platform administrators.
+- Kubernetes deployment: Helm charts for PKI, backing services, migrations, the eleven services and the frontend, with a secrets generator and install script (ADR-0049).
 - Release checklist and community checks in `deploy/single-server`.
 
 ### Changed

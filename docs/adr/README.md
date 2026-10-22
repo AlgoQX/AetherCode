@@ -52,3 +52,4 @@ Each decision is a numbered file; new ones start from [the template](0000-templa
 | [0046](0046-staff-try-an-exam.md) | Staff try an exam as a student |
 | [0047](0047-publish-needs-a-passing-model-solution.md) | A coding question is published only after a model solution passes |
 | [0048](0048-community-content.md) | Community content in the notification service |
+| [0049](0049-kubernetes-deployment.md) | Kubernetes deployment |
