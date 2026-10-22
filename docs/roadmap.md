@@ -259,7 +259,7 @@ policy, contract, events and service README:
 
 - **D1, authoring:** anyone on staff can author questions. They go into the
   single master (global) question bank, which every college uses. Students
-  can't author. This replaces `PLAN.md`'s Golden-only rule and needs an ADR and
+  can't author. This replaces `docs/PLAN.md`'s Golden-only rule and needs an ADR and
   a policy change in Phase 2.
 - **D2, deployment:** Docker Compose on one server (Phase 0).
 - **D3, SEB:** **required** for exams. The platform's SEB enforcement

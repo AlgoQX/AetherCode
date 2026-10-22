@@ -61,8 +61,7 @@ database. Diagram: [docs/architecture](docs/architecture/ARCHITECTURE_DIAGRAM.md
 | `deploy/single-server/` | The Docker Compose stack the campus runs ([README](deploy/single-server/README.md)) |
 | `deploy/helm/`, `deploy/kustomize/`, `deploy/compose/`, `deploy/database/` | Kubernetes charts, overlays, judge control-plane and database provisioning |
 | `apps/exam-v1/` | The frozen v1 exam app, a fallback until cut-over ([README](apps/exam-v1/README.md)) |
-| `docs/` | [Index](docs/README.md), [ADRs](docs/adr/README.md), [platform guide](docs/platform-guide.md), runbooks, [roadmap](docs/roadmap.md) |
-| `PLAN.md` | Service ownership, topology, retention and promotion requirements |
+| `docs/` | [Plan](docs/PLAN.md) (service ownership, topology, retention, promotion requirements), [index](docs/README.md), [ADRs](docs/adr/README.md), [platform guide](docs/platform-guide.md), runbooks, [roadmap](docs/roadmap.md) |
 
 The platform and v1 share no code or database. The split is recorded in
 [ADR-0016](docs/adr/0016-lean-exam-app-for-first-launch.md) and

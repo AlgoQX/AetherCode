@@ -155,6 +155,6 @@ Test coverage includes:
 
 ## Related Documentation
 
-- `PLAN.md` - Architecture and data lifecycle policies
+- `../PLAN.md` - Architecture and data lifecycle policies
 - `migrations/README.md` - Migration history and dependencies
 - `CLAUDE.md` - Development principles and conventions

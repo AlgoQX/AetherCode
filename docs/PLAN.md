@@ -46,7 +46,7 @@ reworking the core.
 > Initial version pins were verified against upstream primary documentation on
 > 2026-07-24 because Context7 is unavailable in this workspace. The evidence
 > and immutable image digest are maintained in
-> [`docs/architecture/version-verification.md`](docs/architecture/version-verification.md).
+> [`docs/architecture/version-verification.md`](architecture/version-verification.md).
 
 | Layer | Choice | Target version | Notes |
 |---|---|---|---|
@@ -92,7 +92,7 @@ first release. A single-node deployment is not an accepted production topology.
 
 The current CloudNativePG chart is render-gated on certificate and
 India-resident backup inputs; its node-loss and restore acceptance exercises
-are in [`deploy/runbooks/platform-postgres-ha.md`](deploy/runbooks/platform-postgres-ha.md).
+are in [`deploy/runbooks/platform-postgres-ha.md`](../deploy/runbooks/platform-postgres-ha.md).
 
 ---
 

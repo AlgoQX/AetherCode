@@ -1,0 +1,5 @@
+# Code owners are requested for review automatically.
+*                         @Shreesh-Sree
+/backend/services/user/   @Shreesh-Sree
+/backend/libs/pkg/authz/  @Shreesh-Sree
+/deploy/                  @Shreesh-Sree

@@ -209,10 +209,10 @@ SELECT deleted_at FROM seb.configurations WHERE id = '<id>';
 
 ## Documentation References
 
-- Migration implementation: `000010_IMPLEMENTATION_REPORT.md`
-- Usage guide: `SOFT_DELETE.md`
+- Migration implementation: `seb-soft-delete-implementation-report.md`
+- Usage guide: `../database/seb-soft-delete.md`
 - Migration history: `migrations/README.md`
-- Architecture: `PLAN.md`
+- Architecture: `../PLAN.md`
 
 ## Team Sign-Off
 

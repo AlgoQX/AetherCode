@@ -7,7 +7,7 @@ profile. The current status is maintained in [roadmap.md](roadmap.md).
 
 ## Start here
 
-- [Architecture and implementation plan](../PLAN.md) — service ownership,
+- [Architecture and implementation plan](PLAN.md) — service ownership,
   topology, retention, and promotion requirements.
 - [Platform guide](platform-guide.md) — security model, judge boundary, what works end to end, first run and key rotation.
 - [Database architecture](database/README.md) — logical databases, roles, and
@@ -25,7 +25,8 @@ profile. The current status is maintained in [roadmap.md](roadmap.md).
   ([image](architecture/aethercode_platform_architecture.jpg)) — clients,
   gateway, services, storage and the isolated judge.
 - [Go backend audit, 2026-10-03](audits/2026-10-03-go-backend-audit.md) — the
-  audit and its fix log.
+  audit and its fix log; [SEB soft-delete deployment checklist](audits/seb-soft-delete-deployment-checklist.md)
+  and [implementation report](audits/seb-soft-delete-implementation-report.md).
 - [Roadmap](roadmap.md) — what is done, what is pending, what needs the owner.
 - [Gateway and SEB enforcement boundary](adr/0012-gateway-seb-enforcement-boundary.md)
   — fixed public routing, assertion verification, and candidate-bound SEB

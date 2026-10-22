@@ -40,7 +40,7 @@ Implemented soft delete functionality for the SEB (Safe Exam Browser) service fo
    - Safe to run repeatedly
 
 ### Documentation Files
-4. **SOFT_DELETE.md** (comprehensive usage guide)
+4. **docs/database/seb-soft-delete.md** (comprehensive usage guide)
    - Schema changes overview
    - Cascade behavior documentation
    - RLS policy impact
@@ -49,7 +49,7 @@ Implemented soft delete functionality for the SEB (Safe Exam Browser) service fo
    - Testing instructions
    - Security considerations
 
-5. **000010_IMPLEMENTATION_REPORT.md** (this file)
+5. **seb-soft-delete-implementation-report.md** (this file)
 
 ### Updated Files
 6. **migrations/README.md**
@@ -175,7 +175,7 @@ Consider adding:
 ## Validation Checklist
 
 - [x] Migration files created (up, down, test)
-- [x] Documentation written (SOFT_DELETE.md)
+- [x] Documentation written (docs/database/seb-soft-delete.md)
 - [x] migrations/README.md updated
 - [x] Down migration tested for completeness
 - [x] Test file covers all schema changes
@@ -194,4 +194,4 @@ Pattern established in:
 - `backend/services/question-bank/migrations/000006_soft_delete_schema.*.sql`
 - `backend/services/submission/migrations/000013_soft_delete_schema.*.sql`
 
-See `PLAN.md` for overall architecture and `CLAUDE.md` for development principles.
+See `docs/PLAN.md` for overall architecture and `CLAUDE.md` for development principles.

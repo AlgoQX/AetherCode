@@ -24,7 +24,7 @@ has a Go backend and a Next.js frontend):
   authoring, exams, grading, SEB lockdown, results, live operations, practice,
   community content and single sign-on work through the gateway, and
   `frontend/` (Next.js 16, a thin backend-for-frontend over the gateway) is the
-  web UI for students and staff. Full context in `PLAN.md`; current state,
+  web UI for students and staff. Full context in `docs/PLAN.md`; current state,
   pending work and the production gates in `docs/roadmap.md`.
 
 The two share no code or database. Never couple them. Per ADR-0017 the Go
@@ -39,7 +39,7 @@ behavioural reference for the port in
 2. **Keep it simple** — least code that meets the requirement; delete before
    you add.
 3. **Stay in your lane** — platform: respect hexagonal boundaries and service
-   ownership (`PLAN.md` §6) and never reach into another service's data; exam
+   ownership (`docs/PLAN.md` §6) and never reach into another service's data; exam
    app: logic in `lib/`, page data in server components, mutations in server
    actions, background work in `worker/`.
 4. **Verify versions** — never invent a version or an API. Use Context7
