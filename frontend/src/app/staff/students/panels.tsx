@@ -58,7 +58,7 @@ export function ImportPanel({ batches, placements, departments }: { batches: Bat
                 if (val === null || val === undefined) return "";
                 if (typeof val === "object") {
                   if ("text" in val && typeof val.text === "string") return val.text;
-                  if ("result" in val && (typeof val.result === "string" || typeof val.result === "number")) return String(val.result);
+                  if ("result" in val && (typeof val.result === "string" || typeof val.result === "number" || typeof val.result === "boolean")) return String(val.result);
                   return "";
                 }
                 return String(val).trim();

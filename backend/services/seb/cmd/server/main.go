@@ -272,8 +272,18 @@ func loadLaunchSettings() (app.LaunchSettings, error) {
 	if len(password) != 48 {
 		return app.LaunchSettings{}, fmt.Errorf("SEB_LAUNCH_PASSWORD must be exactly 48 hexadecimal characters generated from 24 random bytes")
 	}
-	if _, err := hex.DecodeString(password); err != nil {
+	decoded, err := hex.DecodeString(password)
+	if err != nil {
 		return app.LaunchSettings{}, fmt.Errorf("SEB_LAUNCH_PASSWORD must be exactly 48 hexadecimal characters generated from 24 random bytes")
+	}
+	// 24 random bytes practically always hold 16+ distinct values; repeated or
+	// patterned values (such as "abab...") do not and are rejected as weak.
+	distinct := make(map[byte]struct{}, len(decoded))
+	for _, b := range decoded {
+		distinct[b] = struct{}{}
+	}
+	if len(distinct) < 16 {
+		return app.LaunchSettings{}, fmt.Errorf("SEB_LAUNCH_PASSWORD looks patterned; generate it with `openssl rand -hex 24`")
 	}
 	return app.LaunchSettings{BaseURL: baseURL, Password: password}, nil
 }
