@@ -212,7 +212,7 @@ jobs:
       - helm-lint
     if: github.event_name == 'push' && github.ref == 'refs/heads/production'
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
     environment: production
     steps:
       - uses: actions/checkout@v7
@@ -249,6 +249,7 @@ jobs:
             helm upgrade "$service" "$chart" \
               --namespace "$namespace" \
               --reuse-values \
+              --values "deploy/helm/platform-service/values-$service.yaml" \
               --set image.tag="$IMAGE_TAG" \
               --wait --atomic --timeout 10m
           done
