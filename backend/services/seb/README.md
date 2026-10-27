@@ -119,8 +119,10 @@ projection-worker role; it consumes normal grant snapshots plus targeted resync
 snapshots/completions. `NATS_URL` is required because the resync request is
 written through the SEB outbox and the database/RLS gate begins deny-by-default.
 `SEB_LAUNCH_BASE_URL` (the web app's public origin) and `SEB_LAUNCH_PASSWORD`
-(at least 16 characters; encrypts launch files and is SEB's quit password) are
-set together; without them the launch-file routes return 503.
+(48 hexadecimal characters generated from 24 random bytes; encrypts launch
+files and is SEB's quit password) are set together; without them the launch-file
+routes return 503. Use the repository's secret-generation scripts rather than
+choosing a human password.
 The normal shared authorization variables (`AUTHZ_*`) configure the mTLS User
 service client. Do not expose the SEB service directly to browsers: Gateway is
 the component that rebuilds the requested URL and calls the request check.

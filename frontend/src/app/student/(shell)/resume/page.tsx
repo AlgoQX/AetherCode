@@ -1,4 +1,4 @@
-import { Download, GraduationCap, Mail, Trophy, User, ExternalLink, Code } from "lucide-react";
+import { GraduationCap, Trophy, User, ExternalLink, Code } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Panel } from "@/components/ui/card";

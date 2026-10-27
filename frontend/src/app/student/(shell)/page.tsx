@@ -1,14 +1,14 @@
-import { ArrowRight, Clock3, NotebookPen, Terminal } from "lucide-react";
+import { ArrowRight, Clock3 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge, Panel } from "@/components/ui/card";
-import type { Attempt, CandidateAssignment, Page, PracticeProgress, ProfileLink } from "@/lib/api-types";
+import type { Attempt, Page, PracticeProgress, ProfileLink } from "@/lib/api-types";
 import { groupByPhase, listAssignments } from "@/lib/server/assignments";
 import { communityList } from "@/lib/server/community";
 import { gateway } from "@/lib/server/gateway";
 import { requireViewer } from "@/lib/server/session";
-import { cn, dateTile, formatDateTime, formatDuration, formatWindow } from "@/lib/utils";
+import { formatDateTime, formatDuration, formatWindow } from "@/lib/utils";
 import { OverviewMetrics } from "./overview-metrics";
 
 export const metadata: Metadata = { title: "My exams" };

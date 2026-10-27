@@ -1,12 +1,12 @@
-import { ArrowLeft, BookOpen, CheckCircle, ExternalLink, GraduationCap, Mail, Shield, User } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EmptyState, LoadError, PageHeader, Section, Table } from "@/components/staff/page-header";
+import { EmptyState, LoadError, PageHeader, Section } from "@/components/staff/page-header";
 import { Badge, Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Student, ProfileLink } from "@/lib/api-types";
-import { listBatches, listDepartments, departmentLabel } from "@/lib/server/directory";
+import { listDepartments, departmentLabel } from "@/lib/server/directory";
 import { describeAccounts } from "@/lib/server/people";
 import { platformStats } from "@/lib/server/platforms";
 import { communityList } from "@/lib/server/community";
@@ -22,9 +22,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   let data;
   try {
-    const [departments, batches, student] = await Promise.all([
+    const [departments, student] = await Promise.all([
       listDepartments(staff.tenantId),
-      listBatches(staff.tenantId),
       gateway<Student>(`/user/v1/tenants/${staff.tenantId}/students/${studentId}`).catch(() => null),
     ]);
 
@@ -38,7 +37,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     const account = accountMap.get(student.principal_id);
     const stats = await platformStats(links.filter((l) => l.handle));
 
-    data = { student, account, departments, batches, stats };
+    data = { student, account, departments, stats };
   } catch (error) {
     return (
       <>
@@ -48,7 +47,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     );
   }
 
-  const { student, account, departments, batches, stats } = data;
+  const { student, account, departments, stats } = data;
   const deptMap = new Map(departments.map((d) => [d.id, departmentLabel(d)]));
   const dept = deptMap.get(student.college_department_id || "") || "General Engineering";
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -268,8 +269,11 @@ func loadLaunchSettings() (app.LaunchSettings, error) {
 		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return app.LaunchSettings{}, fmt.Errorf("SEB_LAUNCH_BASE_URL must be the web app's origin, such as https://exam.example.edu")
 	}
-	if len(password) < 16 {
-		return app.LaunchSettings{}, fmt.Errorf("SEB_LAUNCH_PASSWORD must be set with SEB_LAUNCH_BASE_URL and be at least 16 characters")
+	if len(password) != 48 {
+		return app.LaunchSettings{}, fmt.Errorf("SEB_LAUNCH_PASSWORD must be exactly 48 hexadecimal characters generated from 24 random bytes")
+	}
+	if _, err := hex.DecodeString(password); err != nil {
+		return app.LaunchSettings{}, fmt.Errorf("SEB_LAUNCH_PASSWORD must be exactly 48 hexadecimal characters generated from 24 random bytes")
 	}
 	return app.LaunchSettings{BaseURL: baseURL, Password: password}, nil
 }

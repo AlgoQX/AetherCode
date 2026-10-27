@@ -5,9 +5,9 @@ import { Panel, Badge } from "@/components/ui/card";
 import { requireViewer } from "@/lib/server/session";
 import { gateway } from "@/lib/server/gateway";
 import { listAssignments } from "@/lib/server/assignments";
-import type { Page, Attempt, AttemptResult, CandidateAssignment } from "@/lib/api-types";
+import type { Page, Attempt } from "@/lib/api-types";
 import { formatDateTime } from "@/lib/utils";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = { title: "Completed Assessments" };
 

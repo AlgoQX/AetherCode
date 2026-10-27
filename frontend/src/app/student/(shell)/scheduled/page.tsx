@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { requireViewer } from "@/lib/server/session";
 import { listAssignments, groupByPhase } from "@/lib/server/assignments";
 import { formatDateTime, formatDuration, formatWindow } from "@/lib/utils";
-import { Calendar, Clock3, ArrowRight } from "lucide-react";
+import { Calendar, Clock3 } from "lucide-react";
 
 export const metadata: Metadata = { title: "Scheduled Assessments" };
 

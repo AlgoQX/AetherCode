@@ -1,4 +1,4 @@
-import { BookOpen, CheckCircle, Code, GraduationCap, Trophy, Sparkles } from "lucide-react";
+import { BookOpen, Code, Trophy } from "lucide-react";
 import Link from "next/link";
 import { Panel } from "@/components/ui/card";
 import type { PracticeProgress } from "@/lib/api-types";
