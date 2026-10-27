@@ -3,6 +3,18 @@
 import { Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+type ExcelJSWorksheet = {
+  addRow(values: string[]): void;
+  getRow(index: number): { font: { bold: boolean } };
+};
+
+type ExcelJSRuntime = {
+  Workbook: new () => {
+    addWorksheet(name: string): ExcelJSWorksheet;
+    xlsx: { writeBuffer(): Promise<BlobPart> };
+  };
+};
+
 export function ExportButton({ rows, filename }: { rows: string[][]; filename: string }) {
   function downloadCsv() {
     const cell = (value: string) => {
@@ -16,23 +28,26 @@ export function ExportButton({ rows, filename }: { rows: string[][]; filename: s
 
   async function downloadExcel() {
     try {
-      if (!(window as any).ExcelJS) {
+      if (!(window as Window & { ExcelJS?: ExcelJSRuntime }).ExcelJS) {
         const script = document.createElement("script");
         script.src = "/monaco/vendor/exceljs.min.js";
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
+        await new Promise<void>((resolve, reject) => {
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("ExcelJS failed to load"));
           document.head.appendChild(script);
         });
       }
-      const workbook = new (window as any).ExcelJS.Workbook();
+      const ExcelJS = (window as Window & { ExcelJS?: ExcelJSRuntime }).ExcelJS;
+      if (!ExcelJS) throw new Error("ExcelJS failed to load");
+      const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Exam Results");
-      if (rows.length > 0) {
-        worksheet.addRow(rows[0]);
+      const firstRow = rows[0];
+      if (firstRow) {
+        worksheet.addRow(firstRow);
         const headerRow = worksheet.getRow(1);
         headerRow.font = { bold: true };
-        for (let i = 1; i < rows.length; i++) {
-          worksheet.addRow(rows[i]);
+        for (const row of rows.slice(1)) {
+          worksheet.addRow(row);
         }
       }
       const buffer = await workbook.xlsx.writeBuffer();

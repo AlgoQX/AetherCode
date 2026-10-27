@@ -16,6 +16,13 @@ import {
 } from "./actions";
 
 type PlacementOption = { id: string; label: string };
+type ExcelCell = string | number | boolean | Date | null | undefined | { text?: unknown; result?: unknown };
+type ExcelJSRuntime = {
+  Workbook: new () => {
+    worksheets: Array<{ eachRow(callback: (row: { values: ExcelCell[] }) => void): void }>;
+    xlsx: { load(data: ArrayBuffer): Promise<void> };
+  };
+};
 
 export function ImportPanel({ batches, placements, departments }: { batches: Batch[]; placements: PlacementOption[]; departments: Department[] }) {
   const [state, action] = useActionState<ImportState, FormData>(importStudents, initialActionState);
@@ -27,27 +34,33 @@ export function ImportPanel({ batches, placements, departments }: { batches: Bat
     const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
     if (isExcel) {
       try {
-        if (!(window as any).ExcelJS) {
+        if (!(window as Window & { ExcelJS?: ExcelJSRuntime }).ExcelJS) {
           const script = document.createElement("script");
           script.src = "/monaco/vendor/exceljs.min.js";
-          await new Promise((resolve, reject) => {
-            script.onload = resolve;
-            script.onerror = reject;
+          await new Promise<void>((resolve, reject) => {
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error("ExcelJS failed to load"));
             document.head.appendChild(script);
           });
         }
         const arrayBuffer = await file.arrayBuffer();
-        const workbook = new (window as any).ExcelJS.Workbook();
+        const ExcelJS = (window as Window & { ExcelJS?: ExcelJSRuntime }).ExcelJS;
+        if (!ExcelJS) throw new Error("ExcelJS failed to load");
+        const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(arrayBuffer);
         const worksheet = workbook.worksheets[0];
         if (worksheet) {
           const rows: string[] = [];
-          worksheet.eachRow((row: any) => {
+          worksheet.eachRow((row) => {
             const values = Array.isArray(row.values) ? row.values.slice(1) : [];
             const line = values
-              .map((val: any) => {
+              .map((val) => {
                 if (val === null || val === undefined) return "";
-                if (typeof val === "object") return String(val.text ?? val.result ?? "");
+                if (typeof val === "object") {
+                  if ("text" in val && typeof val.text === "string") return val.text;
+                  if ("result" in val && (typeof val.result === "string" || typeof val.result === "number")) return String(val.result);
+                  return "";
+                }
                 return String(val).trim();
               })
               .join(",");
