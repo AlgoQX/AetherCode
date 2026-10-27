@@ -7,7 +7,7 @@ import (
 
 func TestLoadLaunchSettingsRejectsWeakOrMalformedPasswords(t *testing.T) {
 	for name, password := range map[string]string{
-		"too short": "abc123",
+		"too short":       "abc123",
 		"not hexadecimal": strings.Repeat("g", 48),
 	} {
 		t.Run(name, func(t *testing.T) {
