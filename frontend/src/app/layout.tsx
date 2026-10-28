@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Chakra_Petch, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ConsentManager } from "@/components/site/consent";
 import { readTheme } from "@/lib/server/theme";
@@ -8,7 +8,8 @@ import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
-const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-source-serif", display: "swap" });
+// Headings on the public pages: an angular, octagonal display face (free, OFL).
+const chakraPetch = Chakra_Petch({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-chakra", display: "swap" });
 
 function origin(): URL | undefined {
   try {
@@ -31,8 +32,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e141e" },
+    { media: "(prefers-color-scheme: light)", color: "#fbf8f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0b1e" },
   ],
 };
 
@@ -42,7 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     // The font variables sit on <html> because the theme's --font-* tokens are
     // declared on :root and resolve there.
-    <html lang="en" data-theme={theme} className={`${geist.variable} ${geistMono.variable} ${sourceSerif.variable}`}>
+    <html lang="en" data-theme={theme} className={`${geist.variable} ${geistMono.variable} ${chakraPetch.variable}`}>
       <body className="antialiased">
         {children}
         <ConsentManager />

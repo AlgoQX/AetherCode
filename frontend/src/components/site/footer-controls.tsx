@@ -26,3 +26,19 @@ export function CookieSettingsLink() {
     </button>
   );
 }
+
+/** The theme switch as a bracketed word, for the header. */
+export function ThemeIcon() {
+  const theme = useTheme();
+  const next = theme === "dark" ? "light" : "dark";
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(next)}
+      aria-label={`Switch to ${next} theme`}
+      className="font-mono text-ink-muted transition-colors hover:text-ink"
+    >
+      [{next}]
+    </button>
+  );
+}
